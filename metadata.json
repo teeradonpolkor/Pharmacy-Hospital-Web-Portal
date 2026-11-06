@@ -1,0 +1,6 @@
+{
+  "name": "Pharmacy & Hospital Web Portal",
+  "description": "Modern Apple-inspired Pharmacy & Healthcare Web Portal for clinical services, drug supply management, herbal production, and internal tools.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
