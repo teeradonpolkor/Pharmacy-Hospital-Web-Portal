@@ -4,6 +4,7 @@ import {
   INITIAL_CATEGORIES,
   INITIAL_ANNOUNCEMENTS,
   INITIAL_SETTINGS,
+  DATA_VERSION,
 } from './data/initialData';
 import { AppItem, Category, Announcement, PortalSettings } from './types/portal';
 import { Header } from './components/Header';
@@ -23,9 +24,29 @@ import {
 } from 'lucide-react';
 
 export default function App() {
+  // Sync latest hospital configuration if version updated
+  useEffect(() => {
+    try {
+      const savedVersion = localStorage.getItem('hospital_portal_version');
+      if (savedVersion !== DATA_VERSION) {
+        localStorage.setItem('hospital_portal_version', DATA_VERSION);
+        localStorage.setItem('hospital_portal_apps', JSON.stringify(INITIAL_APPS));
+        localStorage.setItem('hospital_portal_categories', JSON.stringify(INITIAL_CATEGORIES));
+        localStorage.setItem('hospital_portal_announcements', JSON.stringify(INITIAL_ANNOUNCEMENTS));
+        localStorage.setItem('hospital_portal_settings', JSON.stringify(INITIAL_SETTINGS));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // Local storage state with initial fallbacks
   const [apps, setApps] = useState<AppItem[]>(() => {
     try {
+      const savedVersion = localStorage.getItem('hospital_portal_version');
+      if (savedVersion !== DATA_VERSION) {
+        return INITIAL_APPS;
+      }
       const saved = localStorage.getItem('hospital_portal_apps');
       return saved ? JSON.parse(saved) : INITIAL_APPS;
     } catch {
@@ -35,6 +56,10 @@ export default function App() {
 
   const [categories, setCategories] = useState<Category[]>(() => {
     try {
+      const savedVersion = localStorage.getItem('hospital_portal_version');
+      if (savedVersion !== DATA_VERSION) {
+        return INITIAL_CATEGORIES;
+      }
       const saved = localStorage.getItem('hospital_portal_categories');
       return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
     } catch {
@@ -44,6 +69,10 @@ export default function App() {
 
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
     try {
+      const savedVersion = localStorage.getItem('hospital_portal_version');
+      if (savedVersion !== DATA_VERSION) {
+        return INITIAL_ANNOUNCEMENTS;
+      }
       const saved = localStorage.getItem('hospital_portal_announcements');
       return saved ? JSON.parse(saved) : INITIAL_ANNOUNCEMENTS;
     } catch {
@@ -53,6 +82,10 @@ export default function App() {
 
   const [settings, setSettings] = useState<PortalSettings>(() => {
     try {
+      const savedVersion = localStorage.getItem('hospital_portal_version');
+      if (savedVersion !== DATA_VERSION) {
+        return INITIAL_SETTINGS;
+      }
       const saved = localStorage.getItem('hospital_portal_settings');
       return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
     } catch {

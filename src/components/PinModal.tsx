@@ -108,7 +108,7 @@ export const PinModal: React.FC<PinModalProps> = ({
           เข้าสู่โหมดจัดการระบบ
         </h3>
         <p className="text-xs text-[#4B5277] mt-1 mb-6">
-          กรุณากรอกรหัส PIN ผู้ดูแลระบบ (PIN เริ่มต้น: <span className="text-[#F54F1B] font-bold tracking-wider font-mono">1234</span>)
+          กรุณากรอกรหัส PIN ผู้ดูแลระบบ (PIN: <span className="text-[#F54F1B] font-bold tracking-wider font-mono">{currentPin}</span>)
         </p>
 
         {/* PIN Indicators */}

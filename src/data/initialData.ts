@@ -1,5 +1,7 @@
 import { AppItem, Category, Announcement, PortalSettings } from '../types/portal';
 
+export const DATA_VERSION = '2026-11-06_v2';
+
 export const INITIAL_CATEGORIES: Category[] = [
   {
     id: 'cat-inventory',
@@ -25,87 +27,94 @@ export const INITIAL_CATEGORIES: Category[] = [
 ];
 
 export const INITIAL_APPS: AppItem[] = [
-  // งานบริหารเวชภัณฑ์ยา
+  // 1. งานบริหารเวชภัณฑ์ยา
   {
     id: 'app-inv-1',
     categoryId: 'cat-inventory',
-    title: 'ระบบเบิกจ่ายและโอนย้ายเวชภัณฑ์ยา',
-    description: 'Drug Requisition & Stock Transfer - บันทึกและอนุมัติการเบิกเวชภัณฑ์ยาประจำวันของหอผู้ป่วยและหน่วยงาน',
+    title: 'ระบบบริหารเวชภัณฑ์ยาและมิใช่ยา',
+    description: 'Drug Requisition & Stock Transfer - บันทึกและอนุมัติการเบิกเวชภัณฑ์ยาหน่วยงาน',
     url: 'https://script.google.com/macros/s/AKfycbx35euibHYX4-2KHQrpuKCcQlwv7npX3cNHP4bVEwPLNa6-iC9m8XIOBoJv8AVyAeTcbA/exec',
     iconName: 'Boxes',
     tag: 'คลังยาและเบิกจ่าย',
     status: 'online',
     isFavorite: true,
+    updatedAt: '2026-11-06T04:29:57.670Z',
   },
   {
     id: 'app-inv-2',
     categoryId: 'cat-inventory',
-    title: 'ระบบตรวจนับคลังยาและรายงานคงคลัง',
-    description: 'Inventory Audit & Stock Balance - ตรวจนับสต็อกยาจริงประจำงวด ตรวจสอบยอดคงเหลือ และวิเคราะห์มูลค่าคลัง',
+    title: 'ระบบบริหารเวชภัฑณ์ยาห้องอุบัติเหตุและฉุกเฉิน',
+    description: 'Inventory Audit & Stock Balance - Emergency Room',
     url: 'https://script.google.com/macros/s/AKfycbzEbj5NHKdBNa8NAz16S9ixZsluyI5CvSnQ7ewlbpobJXOjfNXI4e60f-BRzfcv_AlF6w/exec',
     iconName: 'ClipboardCheck',
     tag: 'ตรวจนับสต็อก',
     status: 'online',
     isFavorite: false,
+    updatedAt: '2026-11-06T04:31:50.908Z',
   },
   {
     id: 'app-inv-3',
     categoryId: 'cat-inventory',
     title: 'ระบบแจ้งเตือนยาหมดอายุ (LINE/Telegram)',
     description: 'AppSheet + Google Script Auto Notification - ตรวจสอบวันหมดอายุล่วงหน้า 30-90 วัน และส่งการแจ้งเตือนอัตโนมัติ',
-    url: 'https://script.google.com/macros/s/AKfycbx_8NTJGp1Tg5_15eeCNhBuDnHwnGUmUTjD5OaduAwC9aBfRH4nXuWkdgOS7KYtG8rXTA/exec#expiry-bot',
+    url: 'https://www.appsheet.com/newshortcut/c35b2447-eebc-4233-863f-d4806cccc38f',
     iconName: 'BellRing',
     tag: 'AppSheet + Alert Bot',
     status: 'online',
     isFavorite: true,
+    updatedAt: '2026-11-06T04:36:11.896Z',
   },
   {
     id: 'app-inv-4',
     categoryId: 'cat-inventory',
-    title: 'ระบบจัดซื้อและติดตามใบสั่งซื้อเวชภัณฑ์',
-    description: 'Procurement & PO Tracking System - ติดตามสถานะใบสั่งซื้อยา (PO) ทะเบียนคุมราคา และประเมินการส่งมอบยา',
+    title: 'Stock & Expiry Alert : ระบบป้องกันและตรวจสอบความพร้อมใช้ของยาบนหอผู้ป่วย',
+    description: 'ระบบป้องกันและตรวจสอบความพร้อมใช้ของยาบนหอผู้ป่วย',
     url: 'https://script.google.com/macros/s/AKfycbx_8NTJGp1Tg5_15eeCNhBuDnHwnGUmUTjD5OaduAwC9aBfRH4nXuWkdgOS7KYtG8rXTA/exec',
     iconName: 'FileSpreadsheet',
     tag: 'จัดซื้อยา',
     status: 'online',
     isFavorite: false,
+    updatedAt: '2026-11-06T04:37:53.126Z',
   },
 
-  // งานบริบาลทางเภสัชกรรม
+  // 2. งานบริบาลทางเภสัชกรรม
   {
     id: 'app-clin-1',
     categoryId: 'cat-clinical',
-    title: 'ระบบบันทึกการบริบาลทางเภสัชกรรม',
-    description: 'Clinical Pharmacist Notes & Consultation - บันทึกการบริบาลผู้ป่วยใน/ผู้ป่วยนอก การให้คำปรึกษา และการแก้ไข DRPs',
+    title: 'ระบบติดตามผู้ป่วย',
+    description: 'ระบบติดตามผู้ป่วย',
     url: 'https://script.google.com/macros/s/AKfycbxUvJpCxp-Ifkh3xNWdFZb21q9bFdP2JZgOxye5NYGTASXRjOKwKSkUI-WKOrvzUEegzw/exec',
     iconName: 'Stethoscope',
     tag: 'บริบาลคลินิก',
     status: 'online',
     isFavorite: true,
+    updatedAt: '2026-11-06T04:39:03.165Z',
   },
   {
     id: 'app-clin-2',
     categoryId: 'cat-clinical',
-    title: 'ระบบรายงานอาการไม่พึงประสงค์จากการใช้ยา (ADR)',
-    description: 'Adverse Drug Reaction & Safety Registry - เฝ้าระวัง บันทึกประวัติการแพ้ยา ประเมินระดับความรุนแรง และออกบัตรแพ้ยา',
+    title: 'ระบบรายงานความคลาดเคลื่อนทางยา',
+    description: 'รายงานความคลาดเคลื่อนทางยา',
     url: 'https://script.google.com/macros/s/AKfycbyBM2jpIoMZ1WL5-SseGjxLoBf1I_DVk84ZVQe4DJFow_cwabnAtX54mss9EnhsWeFh/exec',
     iconName: 'ShieldAlert',
     tag: 'ความปลอดภัยผู้ป่วย',
     status: 'online',
     isFavorite: false,
+    updatedAt: '2026-11-06T04:40:06.892Z',
   },
 
-  // งานผลิตยาสมุนไพร
+  // 3. งานผลิตยาสมุนไพร
   {
     id: 'app-herb-1',
     categoryId: 'cat-herbal',
-    title: 'ระบบควบคุมรุ่นการผลิตและสูตรตำรับยาสมุนไพร',
-    description: 'Herbal Medicine Batch Record & QC Master - จัดการสูตรตำรับสมุนไพร ควบคุมกระบวนการผลิต GMP และตรวจสอบคุณภาพก่อนปล่อยผ่าน',
+    title: 'ระบบบริหารคลังโรงงานผลิตยาสมุนไพร',
+    description: 'บริหารคลังโรงงานผลิตยาสมุนไพร',
     url: 'https://script.google.com/macros/s/AKfycbxfXoH2gwoVQBG7OOlptmc3suMXS_K4-0Y_QbkwqHShKmlK5FTVUj3xpg83Nb_Vgd_U/exec',
     iconName: 'FlaskConical',
     tag: 'ผลิตยาสมุนไพร GMP',
     status: 'online',
     isFavorite: true,
+    updatedAt: '2026-11-06T04:42:04.371Z',
   },
 ];
 
@@ -137,8 +146,8 @@ export const INITIAL_ANNOUNCEMENTS: Announcement[] = [
 ];
 
 export const INITIAL_SETTINGS: PortalSettings = {
-  pin: '1234',
+  pin: '1994',
   hospitalName: 'กลุ่มงานเภสัชกรรมและคุ้มครองผู้บริโภค',
   departmentName: 'Pharmacy Service & Healthcare Digital Portal',
-  subtitle: 'ศูนย์รวมระบบงานดิจิทัล คลังยา งานบริบาล และงานผลิตสมุนไพร',
+  subtitle: 'โรงพยาบาลห้วยเกิ้ง อำเภอ กุมภวาปี จังหวัด อุดรธานี',
 };
