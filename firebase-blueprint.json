@@ -1,0 +1,172 @@
+{
+  "entities": {
+    "AppItem": {
+      "title": "AppItem",
+      "description": "Application link item in the portal",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the app"
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "Category ID this app belongs to"
+        },
+        "title": {
+          "type": "string",
+          "description": "Name of the application",
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the application",
+          "maxLength": 1000
+        },
+        "url": {
+          "type": "string",
+          "description": "Target Web URL or Google Apps Script URL",
+          "maxLength": 1000
+        },
+        "iconName": {
+          "type": "string",
+          "description": "Lucide icon identifier",
+          "maxLength": 64
+        },
+        "tag": {
+          "type": "string",
+          "description": "Sub-tag or badge label",
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "enum": ["online", "maintenance", "updated"],
+          "description": "Operational status"
+        },
+        "isFavorite": {
+          "type": "boolean",
+          "description": "Whether pinned to favorites"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update ISO timestamp"
+        }
+      },
+      "required": ["id", "categoryId", "title", "url", "status"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Portal category grouping",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Category identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Category display name",
+          "maxLength": 150
+        },
+        "description": {
+          "type": "string",
+          "description": "Category description",
+          "maxLength": 500
+        },
+        "iconName": {
+          "type": "string",
+          "description": "Icon identifier",
+          "maxLength": 64
+        },
+        "accentColor": {
+          "type": "string",
+          "description": "Hex accent color",
+          "maxLength": 30
+        }
+      },
+      "required": ["id", "name"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Hospital bulletin or urgent memo",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Announcement identifier"
+        },
+        "title": {
+          "type": "string",
+          "description": "Bulletin title",
+          "maxLength": 200
+        },
+        "content": {
+          "type": "string",
+          "description": "Bulletin message body",
+          "maxLength": 2000
+        },
+        "date": {
+          "type": "string",
+          "description": "Date label string",
+          "maxLength": 50
+        },
+        "type": {
+          "type": "string",
+          "enum": ["urgent", "info", "update"],
+          "description": "Announcement type"
+        },
+        "isPinned": {
+          "type": "boolean",
+          "description": "Pinned status"
+        }
+      },
+      "required": ["id", "title", "content", "type"]
+    },
+    "PortalSettings": {
+      "title": "PortalSettings",
+      "description": "Global hospital portal configuration",
+      "type": "object",
+      "properties": {
+        "pin": {
+          "type": "string",
+          "description": "Administrative PIN code",
+          "maxLength": 20
+        },
+        "hospitalName": {
+          "type": "string",
+          "description": "Hospital group or department name",
+          "maxLength": 200
+        },
+        "departmentName": {
+          "type": "string",
+          "description": "Sub-department or division name",
+          "maxLength": 200
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "Hospital location or slogan",
+          "maxLength": 300
+        }
+      },
+      "required": ["pin", "hospitalName"]
+    }
+  },
+  "firestore": {
+    "/apps/{appId}": {
+      "schema": "AppItem",
+      "description": "Collection of all web applications and tools"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Collection of categories"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Collection of announcements"
+    },
+    "/settings/{settingId}": {
+      "schema": "PortalSettings",
+      "description": "Configuration settings document"
+    }
+  }
+}

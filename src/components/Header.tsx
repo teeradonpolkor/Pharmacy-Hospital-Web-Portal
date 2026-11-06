@@ -22,6 +22,7 @@ interface HeaderProps {
   showFavoritesOnly: boolean;
   onToggleFavoritesOnly: () => void;
   onFocusSearch: () => void;
+  isCloudSynced?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -107,6 +108,14 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
               <span className="text-[#4B5277]">พร้อมใช้งาน:</span>
               <span className="font-semibold text-[#1E223D]">{onlineApps}/{totalApps} ระบบ</span>
+            </div>
+
+            <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/70 border border-[#1E223D]/10 text-xs shadow-xs" title="เชื่อมต่อฐานข้อมูล Google Firebase Firestore แบบ Real-time เรียบร้อยแล้ว">
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-[#4B5277]">ฐานข้อมูลกลาง:</span>
+              <span className="font-semibold text-emerald-800">Cloud Sync (Realtime)</span>
             </div>
           </div>
 

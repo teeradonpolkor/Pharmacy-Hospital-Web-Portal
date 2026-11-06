@@ -23,23 +23,22 @@ import {
   CheckCircle,
 } from 'lucide-react';
 
-export default function App() {
-  // Sync latest hospital configuration if version updated
-  useEffect(() => {
-    try {
-      const savedVersion = localStorage.getItem('hospital_portal_version');
-      if (savedVersion !== DATA_VERSION) {
-        localStorage.setItem('hospital_portal_version', DATA_VERSION);
-        localStorage.setItem('hospital_portal_apps', JSON.stringify(INITIAL_APPS));
-        localStorage.setItem('hospital_portal_categories', JSON.stringify(INITIAL_CATEGORIES));
-        localStorage.setItem('hospital_portal_announcements', JSON.stringify(INITIAL_ANNOUNCEMENTS));
-        localStorage.setItem('hospital_portal_settings', JSON.stringify(INITIAL_SETTINGS));
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+import {
+  seedInitialDataIfEmpty,
+  subscribeToApps,
+  subscribeToCategories,
+  subscribeToAnnouncements,
+  subscribeToSettings,
+  saveAppToFirestore,
+  deleteAppFromFirestore,
+  saveCategoryToFirestore,
+  saveAnnouncementToFirestore,
+  deleteAnnouncementFromFirestore,
+  saveSettingsToFirestore,
+  resetFirestoreToDefaults,
+} from './services/firebase';
 
+export default function App() {
   // Local storage state with initial fallbacks
   const [apps, setApps] = useState<AppItem[]>(() => {
     try {
@@ -93,6 +92,46 @@ export default function App() {
     }
   });
 
+  // Connect Firebase Firestore Real-time Central Database
+  useEffect(() => {
+    seedInitialDataIfEmpty();
+
+    const unsubApps = subscribeToApps((remoteApps) => {
+      if (remoteApps && remoteApps.length > 0) {
+        setApps(remoteApps);
+        localStorage.setItem('hospital_portal_apps', JSON.stringify(remoteApps));
+      }
+    });
+
+    const unsubCats = subscribeToCategories((remoteCats) => {
+      if (remoteCats && remoteCats.length > 0) {
+        setCategories(remoteCats);
+        localStorage.setItem('hospital_portal_categories', JSON.stringify(remoteCats));
+      }
+    });
+
+    const unsubAnn = subscribeToAnnouncements((remoteAnn) => {
+      if (remoteAnn) {
+        setAnnouncements(remoteAnn);
+        localStorage.setItem('hospital_portal_announcements', JSON.stringify(remoteAnn));
+      }
+    });
+
+    const unsubSettings = subscribeToSettings((remoteSettings) => {
+      if (remoteSettings) {
+        setSettings(remoteSettings);
+        localStorage.setItem('hospital_portal_settings', JSON.stringify(remoteSettings));
+      }
+    });
+
+    return () => {
+      unsubApps();
+      unsubCats();
+      unsubAnn();
+      unsubSettings();
+    };
+  }, []);
+
   // UI state
   const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState<boolean>(false);
@@ -122,16 +161,16 @@ export default function App() {
     localStorage.setItem('hospital_portal_settings', JSON.stringify(settings));
   }, [settings]);
 
-  // App handlers
-  const handleToggleFavorite = (id: string) => {
-    setApps((prev) =>
-      prev.map((app) =>
-        app.id === id ? { ...app, isFavorite: !app.isFavorite } : app
-      )
-    );
+  // App handlers with Firestore Cloud Persistence
+  const handleToggleFavorite = async (id: string) => {
+    const target = apps.find((a) => a.id === id);
+    if (!target) return;
+    const updated = { ...target, isFavorite: !target.isFavorite };
+    setApps((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    await saveAppToFirestore(updated);
   };
 
-  const handleSaveApp = (savedApp: AppItem) => {
+  const handleSaveApp = async (savedApp: AppItem) => {
     setApps((prev) => {
       const exists = prev.some((a) => a.id === savedApp.id);
       if (exists) {
@@ -140,45 +179,70 @@ export default function App() {
         return [savedApp, ...prev];
       }
     });
+    await saveAppToFirestore(savedApp);
   };
 
-  const handleDeleteApp = (id: string) => {
+  const handleDeleteApp = async (id: string) => {
     setApps((prev) => prev.filter((a) => a.id !== id));
+    await deleteAppFromFirestore(id);
   };
 
-  const handleAddCategory = (newCat: Category) => {
+  const handleAddCategory = async (newCat: Category) => {
     setCategories((prev) => [...prev, newCat]);
+    await saveCategoryToFirestore(newCat);
   };
 
-  const handleSaveAnnouncement = (newAnn: Announcement) => {
+  const handleSaveAnnouncement = async (newAnn: Announcement) => {
     setAnnouncements((prev) => [newAnn, ...prev]);
+    await saveAnnouncementToFirestore(newAnn);
   };
 
-  const handleDeleteAnnouncement = (id: string) => {
+  const handleDeleteAnnouncement = async (id: string) => {
     setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+    await deleteAnnouncementFromFirestore(id);
   };
 
-  const handleSaveSettings = (newSettings: PortalSettings) => {
+  const handleSaveSettings = async (newSettings: PortalSettings) => {
     setSettings(newSettings);
+    await saveSettingsToFirestore(newSettings);
   };
 
-  const handleResetToDefaults = () => {
+  const handleResetToDefaults = async () => {
     setApps(INITIAL_APPS);
     setCategories(INITIAL_CATEGORIES);
     setAnnouncements(INITIAL_ANNOUNCEMENTS);
     setSettings(INITIAL_SETTINGS);
+    await resetFirestoreToDefaults();
   };
 
-  const handleImportData = (data: {
+  const handleImportData = async (data: {
     apps?: AppItem[];
     categories?: Category[];
     announcements?: Announcement[];
     settings?: PortalSettings;
   }) => {
-    if (data.apps) setApps(data.apps);
-    if (data.categories) setCategories(data.categories);
-    if (data.announcements) setAnnouncements(data.announcements);
-    if (data.settings) setSettings(data.settings);
+    if (data.apps) {
+      setApps(data.apps);
+      for (const item of data.apps) {
+        await saveAppToFirestore(item);
+      }
+    }
+    if (data.categories) {
+      setCategories(data.categories);
+      for (const cat of data.categories) {
+        await saveCategoryToFirestore(cat);
+      }
+    }
+    if (data.announcements) {
+      setAnnouncements(data.announcements);
+      for (const ann of data.announcements) {
+        await saveAnnouncementToFirestore(ann);
+      }
+    }
+    if (data.settings) {
+      setSettings(data.settings);
+      await saveSettingsToFirestore(data.settings);
+    }
   };
 
   const handleEditAppTrigger = (app: AppItem) => {
