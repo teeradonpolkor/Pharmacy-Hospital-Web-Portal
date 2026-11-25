@@ -155,6 +155,12 @@ export async function seedInitialDataIfEmpty() {
       );
       await rosterBatch.commit();
     }
+
+    // Seed public roster header & signatories config if missing (contains NO money/rates)
+    const configSnap = await getDocs(collection(db, 'roster_config'));
+    if (configSnap.empty) {
+      await setDoc(doc(db, 'roster_config', 'default'), INITIAL_ROSTER_CONFIG);
+    }
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, 'seed');
   }

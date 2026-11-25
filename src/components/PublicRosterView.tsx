@@ -10,7 +10,6 @@ import {
   Clock,
   Sun,
   Sunset,
-  SlidersHorizontal,
 } from 'lucide-react';
 import { RosterPublicMonth } from '../types/portal';
 import {
@@ -108,6 +107,7 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
     ? getDaysInMonth(activeRoster.yearAD, activeRoster.month)
     : 30;
   const daysArray = Array.from({ length: daysCount }, (_, i) => i + 1);
+  const webDayColPercent = `${(69.5 / daysCount).toFixed(4)}%`;
 
   const visibleRows = useMemo(() => {
     if (!activeRoster) return [];
@@ -122,7 +122,7 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
     <div className="space-y-6">
       {/* Today's Duty Summary Strip (if current month is published) */}
       {todayRoster && (
-        <div className="p-4 sm:p-5 rounded-3xl bg-white/80 backdrop-blur-md border border-[#1E223D]/10 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="no-print p-4 sm:p-5 rounded-3xl bg-white/80 backdrop-blur-md border border-[#1E223D]/10 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-[#1E223D] text-[#E6D5B7] flex items-center justify-center shrink-0 shadow-sm">
               <Clock className="w-5 h-5" />
@@ -162,10 +162,10 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
         </div>
       )}
 
-      {/* Control Bar: Month-by-Month Selector + Staff Filter + Admin Button */}
-      <div className="p-4 sm:p-5 rounded-3xl bg-white/80 backdrop-blur-md border border-[#1E223D]/10 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+      {/* Control Bar: Month-by-Month Selector + Staff Filter + Print + Admin Button */}
+      <div className="no-print p-4 sm:p-5 rounded-3xl bg-white/80 backdrop-blur-md border border-[#1E223D]/10 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         {/* Month-by-month Navigation */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <div className="flex items-center gap-1 bg-[#F4EFE6] p-1 rounded-2xl border border-[#1E223D]/10">
             <button
               onClick={handlePrevMonth}
@@ -237,8 +237,9 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
             <button
               onClick={handlePrintPublicRoster}
               className="px-4 py-2.5 rounded-xl bg-white hover:bg-[#F4EFE6] text-[#1E223D] border border-[#1E223D]/15 text-xs font-semibold flex items-center gap-2 transition-colors shadow-2xs whitespace-nowrap shrink-0"
+              title="พิมพ์ตารางเวรขนาด A4 แนวนอน ครบทุกวันในหน้าเดียว"
             >
-              <Printer className="w-4 h-4 text-[#4B5277]" />
+              <Printer className="w-4 h-4 text-[#F54F1B]" />
               <span>พิมพ์ตารางเวร</span>
             </button>
           )}
@@ -263,9 +264,9 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
         </div>
       </div>
 
-      {/* Main Public Roster Table Card (Strictly NO pay rates, NO money!) */}
+      {/* Main Public Roster Table Card (Fits 1..31 days in 1 page without horizontal scroll & prints cleanly A4 Landscape, NO money, NO signatories) */}
       {!activeRoster ? (
-        <div className="py-16 px-6 text-center rounded-3xl bg-white/80 border border-[#1E223D]/10 space-y-3 shadow-xs">
+        <div className="no-print py-16 px-6 text-center rounded-3xl bg-white/80 border border-[#1E223D]/10 space-y-3 shadow-xs">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-[#1E223D]/5 border border-[#1E223D]/10 flex items-center justify-center text-[#4B5277]">
             <CalendarDays className="w-7 h-7" />
           </div>
@@ -277,24 +278,24 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
           </p>
         </div>
       ) : (
-        <div className="printable-roster rounded-3xl bg-white/95 border border-[#1E223D]/12 shadow-sm overflow-hidden">
+        <div className="printable-roster rounded-3xl bg-white/95 border border-[#1E223D]/12 shadow-sm overflow-hidden print:border print:border-[#1E223D]/25">
           {/* Roster Table Header */}
-          <div className="px-5 py-4 sm:px-6 border-b border-[#1E223D]/10 bg-[#F9F5EE] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="px-5 py-4 sm:px-6 border-b border-[#1E223D]/10 bg-[#F9F5EE] flex flex-col sm:flex-row sm:items-center justify-between gap-2 print:px-3 print:py-2">
             <div>
-              <h3 className="text-base sm:text-lg font-bold text-[#1E223D]">
+              <h3 className="text-base sm:text-lg font-bold text-[#1E223D] print:text-sm">
                 {activeRoster.title} ประจำเดือน {formatThaiMonthYear(activeRoster.yearAD, activeRoster.month)}
               </h3>
-              <p className="text-xs text-[#4B5277] mt-0.5">
+              <p className="text-xs text-[#4B5277] mt-0.5 print:hidden">
                 ตารางปฏิบัติงานสำหรับบุคลากร (ฉบับเผยแพร่ทั่วไป · ไม่แสดงข้อมูลค่าตอบแทน)
               </p>
             </div>
-            <div className="flex items-center gap-3 text-[11px] text-[#4B5277] shrink-0">
+            <div className="flex items-center gap-3 text-[11px] text-[#4B5277] shrink-0 print:text-[10px]">
               <span className="inline-flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded bg-[#EAF2E3] border border-emerald-300 inline-block" />
                 <span>วันหยุดราชการ / ส.-อา.</span>
               </span>
               {isViewingCurrentMonth && (
-                <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 print:hidden">
                   <span className="w-3 h-3 rounded bg-[#F54F1B]/20 border border-[#F54F1B] inline-block" />
                   <span>วันนี้ ({currentDay})</span>
                 </span>
@@ -302,40 +303,51 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
             </div>
           </div>
 
-          {/* Horizontal Scrollable Matrix */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-xs">
+          {/* Single-Page Fit Matrix (No scroll on desktop >= 1024px & fits 100% on A4 Landscape print) */}
+          <div className="overflow-x-auto lg:overflow-x-visible print:overflow-visible">
+            <table className="w-full min-w-[820px] lg:min-w-0 print:min-w-0 lg:table-fixed print:table-fixed border-collapse text-[11px] print:text-[9.5px]">
+              <colgroup>
+                <col className="w-[13%]" />
+                <col className="w-[9.5%]" />
+                <col className="w-[2.6%]" />
+                {daysArray.map((day) => (
+                  <col key={day} style={{ width: webDayColPercent }} />
+                ))}
+                <col className="w-[5.4%]" />
+              </colgroup>
+
               <thead>
                 <tr className="bg-[#F4EFE6] text-[#1E223D] border-b border-[#1E223D]/15">
-                  <th className="sticky left-0 z-20 bg-[#F4EFE6] px-3 py-2.5 text-left font-bold border-r border-[#1E223D]/12 min-w-[165px] whitespace-nowrap">
+                  <th className="px-2 py-2 text-left font-bold border-r border-[#1E223D]/12 print:px-1.5 print:py-1">
                     ชื่อ-สกุล
                   </th>
-                  <th className="px-2.5 py-2.5 text-left font-bold border-r border-[#1E223D]/12 min-w-[125px] whitespace-nowrap">
+                  <th className="px-1.5 py-2 text-left font-bold border-r border-[#1E223D]/12 print:px-1 print:py-1">
                     ตำแหน่ง
                   </th>
-                  <th className="px-2 py-2.5 text-center font-bold border-r border-[#1E223D]/15 w-12 whitespace-nowrap">
+                  <th className="px-1 py-2 text-center font-bold border-r border-[#1E223D]/15 print:px-0.5 print:py-1">
                     เวร
                   </th>
                   {daysArray.map((day) => {
                     const isHoliday = activeRoster.holidays.includes(day);
                     const isToday = isViewingCurrentMonth && day === currentDay;
-                    const dowLabel = THAI_DAYS_SHORT[getDayOfWeek(activeRoster.yearAD, activeRoster.month, day)];
+                    const dowLabel =
+                      THAI_DAYS_SHORT[getDayOfWeek(activeRoster.yearAD, activeRoster.month, day)];
                     return (
                       <th
                         key={day}
-                        className={`px-1 py-2 text-center font-semibold border-r border-[#1E223D]/10 min-w-[28px] tabular-nums ${
+                        className={`px-0 py-1.5 text-center font-semibold border-r border-[#1E223D]/10 tabular-nums print:py-1 ${
                           isToday
-                            ? 'bg-[#F54F1B] text-white'
+                            ? 'bg-[#F54F1B] text-white print:bg-transparent print:text-[#1E223D]'
                             : isHoliday
                             ? 'bg-[#EAF2E3] text-emerald-900'
                             : 'text-[#1E223D]'
                         }`}
                       >
-                        <div className="leading-tight">{day}</div>
+                        <div className="leading-tight text-[11px] print:text-[9.5px]">{day}</div>
                         <div
-                          className={`text-[9px] font-normal ${
+                          className={`text-[8px] font-normal leading-tight ${
                             isToday
-                              ? 'text-white/90'
+                              ? 'text-white/90 print:text-[#4B5277]'
                               : isHoliday
                               ? 'text-emerald-700'
                               : 'text-[#4B5277]'
@@ -346,7 +358,7 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
                       </th>
                     );
                   })}
-                  <th className="px-3 py-2.5 text-center font-bold bg-[#F4EFE6] min-w-[68px] whitespace-nowrap">
+                  <th className="px-1 py-2 text-center font-bold bg-[#F4EFE6] print:py-1">
                     จำนวน
                   </th>
                 </tr>
@@ -360,20 +372,20 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
                   return (
                     <React.Fragment key={row.staffId}>
                       {/* Morning Row (ช) */}
-                      <tr className="border-b border-[#1E223D]/8 hover:bg-[#F9F5EE]/50 transition-colors">
+                      <tr className="border-b border-[#1E223D]/10 hover:bg-[#F9F5EE]/50 transition-colors">
                         <td
                           rowSpan={2}
-                          className="sticky left-0 z-10 bg-white px-3 py-2.5 font-semibold text-[#1E223D] border-r border-[#1E223D]/12 align-middle whitespace-nowrap"
+                          className="bg-white px-2 py-2 font-semibold text-[#1E223D] border-r border-[#1E223D]/12 align-middle text-[11px] leading-snug break-words print:px-1.5 print:py-1 print:text-[9.5px]"
                         >
                           {row.name}
                         </td>
                         <td
                           rowSpan={2}
-                          className="px-2.5 py-2.5 text-[#4B5277] border-r border-[#1E223D]/12 align-middle text-[11px]"
+                          className="px-1.5 py-2 text-[#4B5277] border-r border-[#1E223D]/12 align-middle text-[10px] leading-snug break-words print:px-1 print:py-1 print:text-[9px]"
                         >
                           {row.position}
                         </td>
-                        <td className="px-2 py-2 text-center font-bold text-amber-800 bg-amber-50/70 border-r border-[#1E223D]/15">
+                        <td className="px-0.5 py-1.5 text-center font-bold text-amber-800 bg-amber-50/70 border-r border-[#1E223D]/15 text-[10px] print:py-1">
                           ช
                         </td>
                         {daysArray.map((day) => {
@@ -383,16 +395,16 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
                           return (
                             <td
                               key={day}
-                              className={`text-center py-2 border-r border-[#1E223D]/8 font-bold ${
+                              className={`text-center py-1.5 px-0 border-r border-[#1E223D]/10 font-bold print:py-1 ${
                                 isToday
-                                  ? 'bg-[#F54F1B]/10'
+                                  ? 'bg-[#F54F1B]/10 print:bg-transparent'
                                   : isHoliday
                                   ? 'bg-[#EAF2E3]/70'
                                   : ''
                               }`}
                             >
                               {hasShift ? (
-                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-bold">
+                                <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold print:w-auto print:h-auto print:bg-transparent print:border-0 print:text-[9.5px]">
                                   ช
                                 </span>
                               ) : null}
@@ -401,7 +413,7 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
                         })}
                         <td
                           rowSpan={2}
-                          className="px-2.5 py-2 text-center border-l border-[#1E223D]/10 bg-[#F9F5EE]/60 font-semibold text-[#1E223D] tabular-nums whitespace-nowrap"
+                          className="px-1 py-1.5 text-center border-l border-[#1E223D]/10 bg-[#F9F5EE]/60 font-semibold text-[#1E223D] tabular-nums text-[10px] whitespace-nowrap print:py-1 print:text-[9px]"
                         >
                           <div className="text-amber-800">ช : {morningCount}</div>
                           <div className="text-[#F54F1B] mt-0.5">บ : {afternoonCount}</div>
@@ -410,7 +422,7 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
 
                       {/* Afternoon Row (บ) */}
                       <tr className="border-b border-[#1E223D]/15 hover:bg-[#F9F5EE]/50 transition-colors">
-                        <td className="px-2 py-2 text-center font-bold text-[#F54F1B] bg-[#F54F1B]/5 border-r border-[#1E223D]/15">
+                        <td className="px-0.5 py-1.5 text-center font-bold text-[#F54F1B] bg-[#F54F1B]/5 border-r border-[#1E223D]/15 text-[10px] print:py-1">
                           บ
                         </td>
                         {daysArray.map((day) => {
@@ -420,16 +432,16 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
                           return (
                             <td
                               key={day}
-                              className={`text-center py-2 border-r border-[#1E223D]/8 font-bold ${
+                              className={`text-center py-1.5 px-0 border-r border-[#1E223D]/10 font-bold print:py-1 ${
                                 isToday
-                                  ? 'bg-[#F54F1B]/10'
+                                  ? 'bg-[#F54F1B]/10 print:bg-transparent'
                                   : isHoliday
                                   ? 'bg-[#EAF2E3]/70'
                                   : ''
                               }`}
                             >
                               {hasShift ? (
-                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-[#F54F1B]/15 text-[#c83a0e] border border-[#F54F1B]/30 text-[11px] font-bold">
+                                <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded bg-[#F54F1B]/15 text-[#c83a0e] border border-[#F54F1B]/30 text-[10px] font-bold print:w-auto print:h-auto print:bg-transparent print:border-0 print:text-[9.5px]">
                                   บ
                                 </span>
                               ) : null}
@@ -445,7 +457,7 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
           </div>
 
           {/* Legend & Public Note */}
-          <div className="px-5 py-4 sm:px-6 bg-[#F9F5EE] border-t border-[#1E223D]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#4B5277]">
+          <div className="px-5 py-4 sm:px-6 bg-[#F9F5EE] border-t border-[#1E223D]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#4B5277] print:px-3 print:py-2 print:text-[10px]">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-[#1E223D]">หมายเหตุ:</span>
@@ -461,7 +473,7 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
               )}
             </div>
 
-            <div className="text-[11px] text-[#4B5277] shrink-0">
+            <div className="text-[11px] text-[#4B5277] shrink-0 print:text-[9.5px]">
               อัปเดตล่าสุด:{' '}
               {new Date(activeRoster.updatedAt).toLocaleDateString('th-TH', {
                 day: 'numeric',

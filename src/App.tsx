@@ -474,7 +474,7 @@ export default function App() {
         </div>
 
         {/* Main Content Area */}
-        <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8 sm:space-y-10">
+        <main className="print-reset-container relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8 sm:space-y-10">
           {/* Hero Section + Segmented Navigation */}
           <section className="text-center max-w-3xl mx-auto space-y-4 pt-1 sm:pt-3 no-print">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 border border-[#1E223D]/10 text-[#1E223D] text-xs font-semibold backdrop-blur-md shadow-xs">

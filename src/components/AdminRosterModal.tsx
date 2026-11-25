@@ -363,8 +363,10 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
 
   // Official Print Preview Overlay (matches image_b01088e6.png)
   if (showOfficialPrintPreview && draftRoster) {
+    const adminDayColPercent = `${(62 / daysInSelectedMonth).toFixed(4)}%`;
+
     return (
-      <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex flex-col overflow-auto p-4 sm:p-8">
+      <div className="print-reset-container fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex flex-col overflow-auto p-4 sm:p-8">
         {/* Non-print toolbar */}
         <div className="no-print max-w-[1200px] w-full mx-auto mb-4 flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl shadow-lg">
           <div className="flex items-center gap-3">
@@ -395,23 +397,34 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
         </div>
 
         {/* Printable Official Document */}
-        <div className="printable-roster max-w-[1200px] w-full mx-auto bg-white text-black p-6 sm:p-8 rounded-xl shadow-2xl border border-slate-300">
-          <div className="text-center font-bold text-sm sm:text-base mb-3">
+        <div className="printable-roster max-w-[1200px] w-full mx-auto bg-white text-black p-5 sm:p-8 rounded-xl shadow-2xl border border-slate-300">
+          <div className="text-center font-bold text-xs sm:text-sm mb-3">
             {draftRoster.title} ประจำเดือน {formatThaiMonthYear(draftRoster.yearAD, draftRoster.month)}
           </div>
 
-          <table className="w-full border-collapse border border-black text-[10px] sm:text-[11px]">
+          <table className="w-full table-fixed border-collapse border border-black text-[9.5px] sm:text-[10px]">
+            <colgroup>
+              <col style={{ width: '11.5%' }} />
+              <col style={{ width: '8.5%' }} />
+              <col style={{ width: '6%' }} />
+              {daysArray.map((day) => (
+                <col key={day} style={{ width: adminDayColPercent }} />
+              ))}
+              <col style={{ width: '6%' }} />
+              <col style={{ width: '6%' }} />
+            </colgroup>
+
             <thead>
               <tr className="bg-[#f7f7ec]">
-                <th className="border border-black px-2 py-1.5 text-center font-bold">ชื่อ-สกุล</th>
-                <th className="border border-black px-2 py-1.5 text-center font-bold">ตำแหน่ง</th>
-                <th className="border border-black px-1.5 py-1.5 text-center font-bold">เวรละ</th>
+                <th className="border border-black px-1 py-1.5 text-center font-bold">ชื่อ-สกุล</th>
+                <th className="border border-black px-1 py-1.5 text-center font-bold">ตำแหน่ง</th>
+                <th className="border border-black px-1 py-1.5 text-center font-bold">เวรละ</th>
                 {daysArray.map((day) => {
                   const isHol = draftRoster.holidays.includes(day);
                   return (
                     <th
                       key={day}
-                      className={`border border-black px-0.5 py-1.5 text-center font-bold w-6 ${
+                      className={`border border-black px-0 py-1.5 text-center font-bold tabular-nums ${
                         isHol ? 'bg-[#e7efe0]' : ''
                       }`}
                     >
@@ -419,8 +432,8 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
                     </th>
                   );
                 })}
-                <th className="border border-black px-2 py-1.5 text-center font-bold">จำนวน</th>
-                <th className="border border-black px-2 py-1.5 text-center font-bold">จำนวนเงิน</th>
+                <th className="border border-black px-1 py-1.5 text-center font-bold">จำนวน</th>
+                <th className="border border-black px-1 py-1.5 text-center font-bold">จำนวนเงิน</th>
               </tr>
             </thead>
             <tbody>
@@ -434,13 +447,13 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
                   return (
                     <React.Fragment key={row.staffId}>
                       <tr>
-                        <td rowSpan={2} className="border border-black px-2 py-1.5 align-middle whitespace-nowrap">
+                        <td rowSpan={2} className="border border-black px-1.5 py-1 align-middle leading-tight break-words">
                           {row.name}
                         </td>
-                        <td rowSpan={2} className="border border-black px-2 py-1.5 text-center align-middle">
+                        <td rowSpan={2} className="border border-black px-1 py-1 text-center align-middle leading-tight break-words">
                           {row.position}
                         </td>
-                        <td className="border border-black px-1.5 py-1 text-right whitespace-nowrap tabular-nums">
+                        <td className="border border-black px-1 py-1 text-right whitespace-nowrap tabular-nums">
                           {row.morningRate} (ช):
                         </td>
                         {daysArray.map((day) => {
@@ -449,7 +462,7 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
                           return (
                             <td
                               key={day}
-                              className={`border border-black text-center py-1 ${
+                              className={`border border-black text-center py-1 px-0 ${
                                 isHol ? 'bg-[#e7efe0]' : ''
                               }`}
                             >
@@ -457,16 +470,16 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
                             </td>
                           );
                         })}
-                        <td rowSpan={2} className="border border-black px-2 py-1 text-center align-middle whitespace-nowrap tabular-nums">
+                        <td rowSpan={2} className="border border-black px-1 py-1 text-center align-middle whitespace-nowrap tabular-nums">
                           <div>ช : {mCount}</div>
                           <div className="mt-1">บ : {aCount}</div>
                         </td>
-                        <td rowSpan={2} className="border border-black px-2 py-1 text-right align-middle font-semibold tabular-nums">
+                        <td rowSpan={2} className="border border-black px-1 py-1 text-right align-middle font-semibold tabular-nums">
                           {totalAmount.toLocaleString('th-TH')}
                         </td>
                       </tr>
                       <tr>
-                        <td className="border border-black px-1.5 py-1 text-right whitespace-nowrap tabular-nums">
+                        <td className="border border-black px-1 py-1 text-right whitespace-nowrap tabular-nums">
                           {row.afternoonRate} (บ):
                         </td>
                         {daysArray.map((day) => {
@@ -475,7 +488,7 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
                           return (
                             <td
                               key={day}
-                              className={`border border-black text-center py-1 ${
+                              className={`border border-black text-center py-1 px-0 ${
                                 isHol ? 'bg-[#e7efe0]' : ''
                               }`}
                             >
@@ -495,7 +508,7 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
                 >
                   รวมทั้งสิ้น
                 </td>
-                <td className="border border-black px-2 py-1.5 text-right tabular-nums">
+                <td className="border border-black px-1 py-1.5 text-right tabular-nums">
                   {grandTotalPay.toLocaleString('th-TH')}
                 </td>
               </tr>
@@ -503,24 +516,24 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
           </table>
 
           {/* Legend */}
-          <div className="mt-4 text-xs flex gap-8">
-            <div className="font-semibold">หมายเหตุ:</div>
-            <div className="space-y-1">
+          <div className="mt-3.5 text-[10.5px] flex gap-6">
+            <div className="font-semibold shrink-0">หมายเหตุ:</div>
+            <div className="space-y-0.5">
               <div>{configForm.morningLabel}</div>
               <div>{configForm.afternoonLabel}</div>
             </div>
           </div>
 
           {/* Official Signatories */}
-          <div className="mt-12 grid grid-cols-2 gap-12 text-center text-xs">
-            <div className="space-y-1">
-              <div className="mb-3">........................................................</div>
+          <div className="mt-10 grid grid-cols-2 gap-12 text-center text-[11px]">
+            <div className="space-y-0.5">
+              <div className="mb-2.5">........................................................</div>
               <div className="font-semibold">{configForm.leftSignatoryName}</div>
               <div>{configForm.leftSignatoryPosition}</div>
               <div>{configForm.leftSignatoryRole}</div>
             </div>
-            <div className="space-y-1">
-              <div className="mb-3">........................................................</div>
+            <div className="space-y-0.5">
+              <div className="mb-2.5">........................................................</div>
               <div className="font-semibold">{configForm.rightSignatoryName}</div>
               <div>{configForm.rightSignatoryPosition}</div>
               <div>{configForm.rightSignatoryRole}</div>
