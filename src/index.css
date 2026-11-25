@@ -108,3 +108,48 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Official A4 Landscape Print Styling */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .printable-roster,
+  .printable-roster * {
+    visibility: visible;
+  }
+
+  .printable-roster {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .printable-roster .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

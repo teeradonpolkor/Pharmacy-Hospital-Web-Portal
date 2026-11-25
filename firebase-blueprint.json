@@ -7,11 +7,13 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the app"
+          "description": "Unique identifier for the app",
+          "maxLength": 128
         },
         "categoryId": {
           "type": "string",
-          "description": "Category ID this app belongs to"
+          "description": "Category ID this app belongs to",
+          "maxLength": 128
         },
         "title": {
           "type": "string",
@@ -49,7 +51,8 @@
         },
         "updatedAt": {
           "type": "string",
-          "description": "Last update ISO timestamp"
+          "description": "Last update ISO timestamp",
+          "maxLength": 64
         }
       },
       "required": ["id", "categoryId", "title", "url", "status"]
@@ -61,7 +64,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Category identifier"
+          "description": "Category identifier",
+          "maxLength": 128
         },
         "name": {
           "type": "string",
@@ -93,7 +97,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Announcement identifier"
+          "description": "Announcement identifier",
+          "maxLength": 128
         },
         "title": {
           "type": "string",
@@ -149,6 +154,201 @@
         }
       },
       "required": ["pin", "hospitalName"]
+    },
+    "RosterStaff": {
+      "title": "RosterStaff",
+      "description": "Staff member profile and confidential shift pay rates (admin backend only)",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique staff identifier",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Staff full name with title",
+          "maxLength": 150
+        },
+        "position": {
+          "type": "string",
+          "description": "Official job position",
+          "maxLength": 150
+        },
+        "morningRate": {
+          "type": "number",
+          "description": "Confidential pay rate per morning shift (ช)"
+        },
+        "afternoonRate": {
+          "type": "number",
+          "description": "Confidential pay rate per afternoon shift (บ)"
+        },
+        "order": {
+          "type": "number",
+          "description": "Display sort order"
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether staff appears in new rosters"
+        }
+      },
+      "required": ["id", "name", "position", "morningRate", "afternoonRate", "order", "isActive"]
+    },
+    "RosterPublicMonth": {
+      "title": "RosterPublicMonth",
+      "description": "Published monthly shift roster for public portal display (strictly excludes rates and money)",
+      "type": "object",
+      "properties": {
+        "monthKey": {
+          "type": "string",
+          "description": "Month key in YYYY-MM format",
+          "pattern": "^[0-9]{4}-[0-9]{2}$",
+          "maxLength": 16
+        },
+        "yearAD": {
+          "type": "number",
+          "description": "Gregorian year"
+        },
+        "month": {
+          "type": "number",
+          "description": "Month number 1-12"
+        },
+        "title": {
+          "type": "string",
+          "description": "Roster title",
+          "maxLength": 300
+        },
+        "holidays": {
+          "type": "array",
+          "description": "List of holiday/weekend day numbers 1-31"
+        },
+        "rows": {
+          "type": "array",
+          "description": "Staff shift rows without monetary fields"
+        },
+        "isPublished": {
+          "type": "boolean",
+          "description": "Publication visibility flag"
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional public remark",
+          "maxLength": 1000
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update ISO timestamp",
+          "maxLength": 64
+        }
+      },
+      "required": ["monthKey", "yearAD", "month", "title", "holidays", "rows", "isPublished", "updatedAt"]
+    },
+    "RosterAdminMonth": {
+      "title": "RosterAdminMonth",
+      "description": "Admin backend monthly shift schedule including draft state and confidential pay rates",
+      "type": "object",
+      "properties": {
+        "monthKey": {
+          "type": "string",
+          "description": "Month key in YYYY-MM format",
+          "pattern": "^[0-9]{4}-[0-9]{2}$",
+          "maxLength": 16
+        },
+        "yearAD": {
+          "type": "number",
+          "description": "Gregorian year"
+        },
+        "month": {
+          "type": "number",
+          "description": "Month number 1-12"
+        },
+        "title": {
+          "type": "string",
+          "description": "Roster title",
+          "maxLength": 300
+        },
+        "holidays": {
+          "type": "array",
+          "description": "List of holiday/weekend day numbers 1-31"
+        },
+        "rows": {
+          "type": "array",
+          "description": "Staff shift rows including confidential pay rates"
+        },
+        "isPublished": {
+          "type": "boolean",
+          "description": "Whether published to public roster"
+        },
+        "note": {
+          "type": "string",
+          "description": "Admin remark",
+          "maxLength": 1000
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update ISO timestamp",
+          "maxLength": 64
+        }
+      },
+      "required": ["monthKey", "yearAD", "month", "title", "holidays", "rows", "isPublished", "updatedAt"]
+    },
+    "RosterConfig": {
+      "title": "RosterConfig",
+      "description": "Official roster print header, legend, and signatories configuration",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Config document ID",
+          "maxLength": 64
+        },
+        "departmentTitle": {
+          "type": "string",
+          "description": "Header title for official schedule",
+          "maxLength": 300
+        },
+        "morningLabel": {
+          "type": "string",
+          "description": "Morning shift legend",
+          "maxLength": 200
+        },
+        "afternoonLabel": {
+          "type": "string",
+          "description": "Afternoon shift legend",
+          "maxLength": 200
+        },
+        "leftSignatoryName": {
+          "type": "string",
+          "description": "Left signatory full name",
+          "maxLength": 150
+        },
+        "leftSignatoryPosition": {
+          "type": "string",
+          "description": "Left signatory position",
+          "maxLength": 150
+        },
+        "leftSignatoryRole": {
+          "type": "string",
+          "description": "Left signatory role",
+          "maxLength": 200
+        },
+        "rightSignatoryName": {
+          "type": "string",
+          "description": "Right signatory full name",
+          "maxLength": 150
+        },
+        "rightSignatoryPosition": {
+          "type": "string",
+          "description": "Right signatory position",
+          "maxLength": 150
+        },
+        "rightSignatoryRole": {
+          "type": "string",
+          "description": "Right signatory role",
+          "maxLength": 200
+        }
+      },
+      "required": ["id", "departmentTitle", "morningLabel", "afternoonLabel"]
     }
   },
   "firestore": {
@@ -167,6 +367,22 @@
     "/settings/{settingId}": {
       "schema": "PortalSettings",
       "description": "Configuration settings document"
+    },
+    "/roster_staff/{staffId}": {
+      "schema": "RosterStaff",
+      "description": "Master staff roster list with confidential shift rates"
+    },
+    "/rosters_public/{monthKey}": {
+      "schema": "RosterPublicMonth",
+      "description": "Published monthly rosters without monetary data"
+    },
+    "/rosters_admin/{monthKey}": {
+      "schema": "RosterAdminMonth",
+      "description": "Admin monthly rosters with draft state and confidential pay rates"
+    },
+    "/roster_config/{configId}": {
+      "schema": "RosterConfig",
+      "description": "Official roster print configuration and signatories"
     }
   }
 }

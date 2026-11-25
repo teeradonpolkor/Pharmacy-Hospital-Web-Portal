@@ -6,6 +6,7 @@ import {
   Settings,
   Bookmark,
   Clock,
+  CalendarDays,
 } from 'lucide-react';
 import { PortalSettings } from '../types/portal';
 
@@ -16,6 +17,7 @@ interface HeaderProps {
   onLockAdmin: () => void;
   onOpenManageModal: () => void;
   onOpenAddNewApp: () => void;
+  onOpenRosterBackend: () => void;
   totalApps: number;
   onlineApps: number;
   favoriteCount: number;
@@ -32,6 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLockAdmin,
   onOpenManageModal,
   onOpenAddNewApp,
+  onOpenRosterBackend,
   totalApps,
   onlineApps,
   favoriteCount,
@@ -146,15 +149,23 @@ export const Header: React.FC<HeaderProps> = ({
             {isAdminUnlocked ? (
               <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/80 border border-[#1E223D]/15 shadow-xs">
                 <button
+                  onClick={onOpenRosterBackend}
+                  className="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1E223D] text-[#E6D5B7] hover:bg-[#2A3159] transition-all flex items-center gap-1.5 shadow-xs whitespace-nowrap shrink-0"
+                  title="เปิดระบบหลังบ้านจัดตารางเวร"
+                >
+                  <CalendarDays className="w-3.5 h-3.5 text-[#F54F1B]" />
+                  <span className="hidden sm:inline">จัดตารางเวร</span>
+                </button>
+                <button
                   onClick={onOpenAddNewApp}
-                  className="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#F54F1B] text-white hover:bg-[#e04514] transition-all flex items-center gap-1.5 shadow-xs"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#F54F1B] text-white hover:bg-[#e04514] transition-all flex items-center gap-1.5 shadow-xs whitespace-nowrap shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">เพิ่มแอป</span>
+                  <span className="hidden md:inline">เพิ่มแอป</span>
                 </button>
                 <button
                   onClick={onOpenManageModal}
-                  className="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-[#1E223D] hover:bg-[#1E223D]/10 transition-colors flex items-center gap-1.5"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-[#1E223D] hover:bg-[#1E223D]/10 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
                   title="การตั้งค่าระบบและจัดการแอปทั้งหมด"
                 >
                   <Settings className="w-3.5 h-3.5 text-[#F54F1B]" />
@@ -162,7 +173,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
                 <button
                   onClick={onLockAdmin}
-                  className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-500/10 transition-colors"
+                  className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-500/10 transition-colors shrink-0"
                   title="ล็อกโหมดผู้ดูแลระบบ"
                 >
                   <Unlock className="w-4 h-4 text-emerald-600" />

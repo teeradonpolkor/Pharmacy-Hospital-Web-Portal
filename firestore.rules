@@ -3,40 +3,202 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
     function isValidString(val, minLen, maxLen) {
       return val is string && val.size() >= minLen && val.size() <= maxLen;
     }
 
+    function isValidAppItem(data) {
+      return data.keys().hasAll(['id', 'categoryId', 'title', 'url', 'status'])
+        && data.keys().hasOnly(['id', 'categoryId', 'title', 'description', 'url', 'iconName', 'tag', 'status', 'isFavorite', 'createdAt', 'updatedAt', 'openMode'])
+        && isValidString(data.id, 1, 128)
+        && isValidString(data.categoryId, 1, 128)
+        && isValidString(data.title, 1, 200)
+        && isValidString(data.url, 1, 1000)
+        && data.status in ['online', 'maintenance', 'updated']
+        && (!('description' in data) || isValidString(data.description, 0, 1000))
+        && (!('iconName' in data) || isValidString(data.iconName, 0, 64))
+        && (!('tag' in data) || isValidString(data.tag, 0, 100))
+        && (!('isFavorite' in data) || data.isFavorite is bool)
+        && (!('createdAt' in data) || isValidString(data.createdAt, 0, 64))
+        && (!('updatedAt' in data) || isValidString(data.updatedAt, 0, 64))
+        && (!('openMode' in data) || data.openMode in ['new_tab', 'modal_frame']);
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['id', 'name'])
+        && data.keys().hasOnly(['id', 'name', 'description', 'iconName', 'accentColor'])
+        && isValidString(data.id, 1, 128)
+        && isValidString(data.name, 1, 150)
+        && (!('description' in data) || isValidString(data.description, 0, 500))
+        && (!('iconName' in data) || isValidString(data.iconName, 0, 64))
+        && (!('accentColor' in data) || isValidString(data.accentColor, 0, 30));
+    }
+
+    function isValidAnnouncement(data) {
+      return data.keys().hasAll(['id', 'title', 'content', 'type'])
+        && data.keys().hasOnly(['id', 'title', 'content', 'date', 'type', 'isPinned'])
+        && isValidString(data.id, 1, 128)
+        && isValidString(data.title, 1, 200)
+        && isValidString(data.content, 1, 2000)
+        && data.type in ['urgent', 'info', 'update']
+        && (!('date' in data) || isValidString(data.date, 0, 50))
+        && (!('isPinned' in data) || data.isPinned is bool);
+    }
+
+    function isValidPortalSettings(data) {
+      return data.keys().hasAll(['pin', 'hospitalName'])
+        && data.keys().hasOnly(['pin', 'hospitalName', 'departmentName', 'subtitle'])
+        && isValidString(data.pin, 4, 20)
+        && isValidString(data.hospitalName, 1, 200)
+        && (!('departmentName' in data) || isValidString(data.departmentName, 0, 200))
+        && (!('subtitle' in data) || isValidString(data.subtitle, 0, 300));
+    }
+
+    function isValidRosterStaff(data) {
+      return data.keys().hasAll(['id', 'name', 'position', 'morningRate', 'afternoonRate', 'order', 'isActive'])
+        && data.keys().hasOnly(['id', 'name', 'position', 'morningRate', 'afternoonRate', 'order', 'isActive'])
+        && isValidString(data.id, 1, 128)
+        && isValidString(data.name, 1, 150)
+        && isValidString(data.position, 0, 150)
+        && data.morningRate is number && data.morningRate >= 0 && data.morningRate <= 100000
+        && data.afternoonRate is number && data.afternoonRate >= 0 && data.afternoonRate <= 100000
+        && data.order is number && data.order >= 0 && data.order <= 1000
+        && data.isActive is bool;
+    }
+
+    function isValidRosterPublicMonth(data) {
+      return data.keys().hasAll(['monthKey', 'yearAD', 'month', 'title', 'holidays', 'rows', 'isPublished', 'updatedAt'])
+        && data.keys().hasOnly(['monthKey', 'yearAD', 'month', 'title', 'holidays', 'rows', 'isPublished', 'note', 'updatedAt'])
+        && isValidString(data.monthKey, 7, 16)
+        && data.monthKey.matches('^[0-9]{4}-[0-9]{2}$')
+        && data.yearAD is number && data.yearAD >= 2000 && data.yearAD <= 2200
+        && data.month is number && data.month >= 1 && data.month <= 12
+        && isValidString(data.title, 1, 300)
+        && data.holidays is list && data.holidays.size() <= 31
+        && data.rows is list && data.rows.size() <= 50
+        && data.isPublished is bool
+        && (!('note' in data) || isValidString(data.note, 0, 1000))
+        && isValidString(data.updatedAt, 1, 64);
+    }
+
+    function isValidRosterAdminMonth(data) {
+      return data.keys().hasAll(['monthKey', 'yearAD', 'month', 'title', 'holidays', 'rows', 'isPublished', 'updatedAt'])
+        && data.keys().hasOnly(['monthKey', 'yearAD', 'month', 'title', 'holidays', 'rows', 'isPublished', 'note', 'updatedAt'])
+        && isValidString(data.monthKey, 7, 16)
+        && data.monthKey.matches('^[0-9]{4}-[0-9]{2}$')
+        && data.yearAD is number && data.yearAD >= 2000 && data.yearAD <= 2200
+        && data.month is number && data.month >= 1 && data.month <= 12
+        && isValidString(data.title, 1, 300)
+        && data.holidays is list && data.holidays.size() <= 31
+        && data.rows is list && data.rows.size() <= 50
+        && data.isPublished is bool
+        && (!('note' in data) || isValidString(data.note, 0, 1000))
+        && isValidString(data.updatedAt, 1, 64);
+    }
+
+    function isValidRosterConfig(data) {
+      return data.keys().hasAll(['id', 'departmentTitle', 'morningLabel', 'afternoonLabel'])
+        && data.keys().hasOnly([
+          'id', 'departmentTitle', 'morningLabel', 'afternoonLabel',
+          'leftSignatoryName', 'leftSignatoryPosition', 'leftSignatoryRole',
+          'rightSignatoryName', 'rightSignatoryPosition', 'rightSignatoryRole'
+        ])
+        && isValidString(data.id, 1, 64)
+        && isValidString(data.departmentTitle, 1, 300)
+        && isValidString(data.morningLabel, 1, 200)
+        && isValidString(data.afternoonLabel, 1, 200)
+        && (!('leftSignatoryName' in data) || isValidString(data.leftSignatoryName, 0, 150))
+        && (!('leftSignatoryPosition' in data) || isValidString(data.leftSignatoryPosition, 0, 150))
+        && (!('leftSignatoryRole' in data) || isValidString(data.leftSignatoryRole, 0, 200))
+        && (!('rightSignatoryName' in data) || isValidString(data.rightSignatoryName, 0, 150))
+        && (!('rightSignatoryPosition' in data) || isValidString(data.rightSignatoryPosition, 0, 150))
+        && (!('rightSignatoryRole' in data) || isValidString(data.rightSignatoryRole, 0, 200));
+    }
+
+    // Connection test document
+    match /test/connection {
+      allow get: if true;
+    }
+
     // Apps collection
     match /apps/{appId} {
-      allow read: if true;
-      allow write: if request.resource.data.title is string
-                   && request.resource.data.url is string
-                   && request.resource.data.categoryId is string;
+      allow get: if isValidId(appId);
+      allow list: if true;
+      allow create, update: if isValidId(appId) && isValidAppItem(incoming());
+      allow delete: if isValidId(appId);
     }
 
     // Categories collection
     match /categories/{categoryId} {
-      allow read: if true;
-      allow write: if request.resource.data.name is string;
+      allow get: if isValidId(categoryId);
+      allow list: if true;
+      allow create, update: if isValidId(categoryId) && isValidCategory(incoming());
+      allow delete: if isValidId(categoryId);
     }
 
     // Announcements collection
     match /announcements/{announcementId} {
-      allow read: if true;
-      allow write: if request.resource.data.title is string
-                   && request.resource.data.content is string;
+      allow get: if isValidId(announcementId);
+      allow list: if true;
+      allow create, update: if isValidId(announcementId) && isValidAnnouncement(incoming());
+      allow delete: if isValidId(announcementId);
     }
 
     // Settings collection
     match /settings/{settingId} {
-      allow read: if true;
-      allow write: if request.resource.data.pin is string;
+      allow get: if isValidId(settingId);
+      allow list: if true;
+      allow create, update: if isValidId(settingId) && isValidPortalSettings(incoming());
+      allow delete: if false;
     }
 
-    // Default catch-all
-    match /{document=**} {
-      allow read, write: if false;
+    // Public published shift rosters (no pay rates or totals allowed)
+    match /rosters_public/{monthKey} {
+      allow get: if isValidId(monthKey) && existing().isPublished == true;
+      allow list: if existing().isPublished == true;
+      allow create, update: if isValidId(monthKey) && isValidRosterPublicMonth(incoming());
+      allow delete: if isValidId(monthKey);
+    }
+
+    // Admin master staff list (confidential shift rates)
+    match /roster_staff/{staffId} {
+      allow get: if isValidId(staffId);
+      allow list: if true;
+      allow create, update: if isValidId(staffId) && isValidRosterStaff(incoming());
+      allow delete: if isValidId(staffId);
+    }
+
+    // Admin backend monthly shift rosters (drafts + confidential pay rates)
+    match /rosters_admin/{monthKey} {
+      allow get: if isValidId(monthKey);
+      allow list: if true;
+      allow create, update: if isValidId(monthKey) && isValidRosterAdminMonth(incoming());
+      allow delete: if isValidId(monthKey);
+    }
+
+    // Official roster print configuration and signatories
+    match /roster_config/{configId} {
+      allow get: if isValidId(configId);
+      allow list: if true;
+      allow create, update: if isValidId(configId) && isValidRosterConfig(incoming());
+      allow delete: if false;
     }
   }
 }

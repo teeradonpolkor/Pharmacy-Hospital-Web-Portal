@@ -1,0 +1,1289 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  X,
+  CalendarDays,
+  Users,
+  FileSignature,
+  Save,
+  Globe,
+  EyeOff,
+  Printer,
+  Plus,
+  Trash2,
+  Edit2,
+  CheckCircle2,
+  RefreshCw,
+  CalendarCheck,
+  ShieldAlert,
+  Lock,
+  ArrowLeft,
+  Copy,
+} from 'lucide-react';
+import {
+  RosterStaff,
+  RosterAdminMonth,
+  RosterAdminRow,
+  RosterConfig,
+} from '../types/portal';
+import {
+  THAI_MONTHS,
+  THAI_DAYS_SHORT,
+  getDaysInMonth,
+  getDayOfWeek,
+  getWeekendDays,
+  formatMonthKey,
+  formatThaiMonthYear,
+  INITIAL_ROSTER_CONFIG,
+} from '../data/rosterData';
+
+interface AdminRosterModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  staffList: RosterStaff[];
+  adminRosters: RosterAdminMonth[];
+  rosterConfig: RosterConfig;
+  onSaveAdminRoster: (roster: RosterAdminMonth) => Promise<void>;
+  onDeleteAdminRoster: (monthKey: string) => Promise<void>;
+  onSaveStaff: (staff: RosterStaff) => Promise<void>;
+  onDeleteStaff: (staffId: string) => Promise<void>;
+  onSaveConfig: (config: RosterConfig) => Promise<void>;
+}
+
+export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
+  isOpen,
+  onClose,
+  staffList,
+  adminRosters,
+  rosterConfig,
+  onSaveAdminRoster,
+  onDeleteAdminRoster,
+  onSaveStaff,
+  onDeleteStaff,
+  onSaveConfig,
+}) => {
+  const now = new Date();
+  const defaultYear = now.getFullYear();
+  const defaultMonth = now.getMonth() + 1;
+
+  const [activeTab, setActiveTab] = useState<'schedule' | 'staff' | 'config'>('schedule');
+  const [selectedYearAD, setSelectedYearAD] = useState<number>(defaultYear);
+  const [selectedMonth, setSelectedMonth] = useState<number>(defaultMonth);
+  const [draftRoster, setDraftRoster] = useState<RosterAdminMonth | null>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [toastMsg, setToastMsg] = useState<string>('');
+  const [showOfficialPrintPreview, setShowOfficialPrintPreview] = useState<boolean>(false);
+
+  // Staff form state
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [staffName, setStaffName] = useState('');
+  const [staffPosition, setStaffPosition] = useState('');
+  const [staffMorningRate, setStaffMorningRate] = useState('780');
+  const [staffAfternoonRate, setStaffAfternoonRate] = useState('390');
+  const [staffOrder, setStaffOrder] = useState('1');
+  const [staffActive, setStaffActive] = useState(true);
+
+  // Config form state
+  const [configForm, setConfigForm] = useState<RosterConfig>(rosterConfig || INITIAL_ROSTER_CONFIG);
+
+  const monthKey = formatMonthKey(selectedYearAD, selectedMonth);
+
+  useEffect(() => {
+    setConfigForm(rosterConfig || INITIAL_ROSTER_CONFIG);
+  }, [rosterConfig]);
+
+  // Load selected month into draftRoster when monthKey or adminRosters changes
+  useEffect(() => {
+    const existing = adminRosters.find((r) => r.monthKey === monthKey);
+    if (existing) {
+      setDraftRoster({
+        ...existing,
+        holidays: [...existing.holidays],
+        rows: existing.rows.map((row) => ({
+          ...row,
+          morningDays: [...row.morningDays],
+          afternoonDays: [...row.afternoonDays],
+        })),
+      });
+    } else {
+      setDraftRoster(null);
+    }
+  }, [monthKey, adminRosters]);
+
+  if (!isOpen) return null;
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 3000);
+  };
+
+  const daysInSelectedMonth = getDaysInMonth(selectedYearAD, selectedMonth);
+  const daysArray = Array.from({ length: daysInSelectedMonth }, (_, i) => i + 1);
+
+  const handleCreateMonthSchedule = (copyFromPrevious: boolean = false) => {
+    const activeStaff = [...staffList]
+      .filter((s) => s.isActive)
+      .sort((a, b) => a.order - b.order);
+
+    const weekends = getWeekendDays(selectedYearAD, selectedMonth);
+    let rows: RosterAdminRow[] = activeStaff.map((s) => ({
+      staffId: s.id,
+      name: s.name,
+      position: s.position,
+      order: s.order,
+      morningRate: s.morningRate,
+      afternoonRate: s.afternoonRate,
+      morningDays: [],
+      afternoonDays: [],
+    }));
+
+    if (copyFromPrevious && adminRosters.length > 0) {
+      const latest = [...adminRosters].sort((a, b) => b.monthKey.localeCompare(a.monthKey))[0];
+      if (latest) {
+        rows = rows.map((r) => {
+          const prevRow = latest.rows.find((pr) => pr.staffId === r.staffId);
+          if (!prevRow) return r;
+          return {
+            ...r,
+            morningDays: prevRow.morningDays.filter((d) => d <= daysInSelectedMonth),
+            afternoonDays: prevRow.afternoonDays.filter((d) => d <= daysInSelectedMonth),
+          };
+        });
+      }
+    }
+
+    const newDraft: RosterAdminMonth = {
+      monthKey,
+      yearAD: selectedYearAD,
+      month: selectedMonth,
+      title: configForm.departmentTitle,
+      holidays: weekends,
+      rows,
+      isPublished: false,
+      note: '',
+      updatedAt: new Date().toISOString(),
+    };
+
+    setDraftRoster(newDraft);
+    showToast(`สร้างแบบร่างตารางเวร ${formatThaiMonthYear(selectedYearAD, selectedMonth)} แล้ว`);
+  };
+
+  const handleToggleHoliday = (day: number) => {
+    if (!draftRoster) return;
+    const exists = draftRoster.holidays.includes(day);
+    const updatedHolidays = exists
+      ? draftRoster.holidays.filter((d) => d !== day)
+      : [...draftRoster.holidays, day].sort((a, b) => a - b);
+
+    setDraftRoster({
+      ...draftRoster,
+      holidays: updatedHolidays,
+    });
+  };
+
+  const handleAutoWeekends = () => {
+    if (!draftRoster) return;
+    const weekends = getWeekendDays(selectedYearAD, selectedMonth);
+    const merged = Array.from(new Set([...draftRoster.holidays, ...weekends])).sort((a, b) => a - b);
+    setDraftRoster({
+      ...draftRoster,
+      holidays: merged,
+    });
+    showToast('เพิ่มวันเสาร์-อาทิตย์ของเดือนนี้เรียบร้อยแล้ว');
+  };
+
+  const handleSyncStaffIntoMonth = () => {
+    if (!draftRoster) return;
+    const activeStaff = [...staffList]
+      .filter((s) => s.isActive)
+      .sort((a, b) => a.order - b.order);
+
+    const updatedRows: RosterAdminRow[] = activeStaff.map((s) => {
+      const existingRow = draftRoster.rows.find((r) => r.staffId === s.id);
+      return {
+        staffId: s.id,
+        name: s.name,
+        position: s.position,
+        order: s.order,
+        morningRate: s.morningRate,
+        afternoonRate: s.afternoonRate,
+        morningDays: existingRow ? existingRow.morningDays : [],
+        afternoonDays: existingRow ? existingRow.afternoonDays : [],
+      };
+    });
+
+    setDraftRoster({
+      ...draftRoster,
+      rows: updatedRows,
+    });
+    showToast('อัปเดตรายชื่อบุคลากรและอัตราค่าตอบแทนล่าสุดเข้าตารางแล้ว');
+  };
+
+  const handleToggleShift = (staffId: string, shiftType: 'morning' | 'afternoon', day: number) => {
+    if (!draftRoster) return;
+    setDraftRoster({
+      ...draftRoster,
+      rows: draftRoster.rows.map((row) => {
+        if (row.staffId !== staffId) return row;
+        if (shiftType === 'morning') {
+          const has = row.morningDays.includes(day);
+          const nextDays = has
+            ? row.morningDays.filter((d) => d !== day)
+            : [...row.morningDays, day].sort((a, b) => a - b);
+          return { ...row, morningDays: nextDays };
+        } else {
+          const has = row.afternoonDays.includes(day);
+          const nextDays = has
+            ? row.afternoonDays.filter((d) => d !== day)
+            : [...row.afternoonDays, day].sort((a, b) => a - b);
+          return { ...row, afternoonDays: nextDays };
+        }
+      }),
+    });
+  };
+
+  const handleSaveRoster = async (publishState?: boolean) => {
+    if (!draftRoster) return;
+    setIsSaving(true);
+    try {
+      const nextPublish = publishState !== undefined ? publishState : draftRoster.isPublished;
+      const payload: RosterAdminMonth = {
+        ...draftRoster,
+        isPublished: nextPublish,
+        updatedAt: new Date().toISOString(),
+      };
+      await onSaveAdminRoster(payload);
+      setDraftRoster(payload);
+      showToast(
+        nextPublish
+          ? 'บันทึกและเผยแพร่ตารางเวรขึ้นหน้าหลัก (ไม่แสดงยอดเงิน) เรียบร้อยแล้ว'
+          : 'บันทึกฉบับร่างในหลังบ้านเรียบร้อยแล้ว (ยังไม่แสดงบนหน้าหลัก)'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteCurrentMonth = async () => {
+    if (!draftRoster) return;
+    if (!confirm(`ยืนยันการลบตารางเวรเดือน ${formatThaiMonthYear(selectedYearAD, selectedMonth)} หรือไม่?`)) {
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onDeleteAdminRoster(draftRoster.monthKey);
+      setDraftRoster(null);
+      showToast('ลบตารางเวรของเดือนนี้แล้ว');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Confidential Totals Calculation (ONLY in Admin Backend)
+  const grandTotalPay = useMemo(() => {
+    if (!draftRoster) return 0;
+    return draftRoster.rows.reduce((sum, row) => {
+      const mTotal = row.morningDays.length * row.morningRate;
+      const aTotal = row.afternoonDays.length * row.afternoonRate;
+      return sum + mTotal + aTotal;
+    }, 0);
+  }, [draftRoster]);
+
+  // Daily coverage counts
+  const dailyCoverage = useMemo(() => {
+    const map: Record<number, { morning: number; afternoon: number }> = {};
+    daysArray.forEach((d) => {
+      map[d] = { morning: 0, afternoon: 0 };
+    });
+    if (draftRoster) {
+      draftRoster.rows.forEach((row) => {
+        row.morningDays.forEach((d) => {
+          if (map[d]) map[d].morning += 1;
+        });
+        row.afternoonDays.forEach((d) => {
+          if (map[d]) map[d].afternoon += 1;
+        });
+      });
+    }
+    return map;
+  }, [draftRoster, daysArray]);
+
+  // Staff Management Handlers
+  const handleStartEditStaff = (s: RosterStaff) => {
+    setEditingStaffId(s.id);
+    setStaffName(s.name);
+    setStaffPosition(s.position);
+    setStaffMorningRate(String(s.morningRate));
+    setStaffAfternoonRate(String(s.afternoonRate));
+    setStaffOrder(String(s.order));
+    setStaffActive(s.isActive);
+  };
+
+  const handleResetStaffForm = () => {
+    setEditingStaffId(null);
+    setStaffName('');
+    setStaffPosition('');
+    setStaffMorningRate('780');
+    setStaffAfternoonRate('390');
+    setStaffOrder(String(staffList.length + 1));
+    setStaffActive(true);
+  };
+
+  const handleSubmitStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!staffName.trim()) return;
+    setIsSaving(true);
+    try {
+      const payload: RosterStaff = {
+        id: editingStaffId || `staff-${Date.now()}`,
+        name: staffName.trim(),
+        position: staffPosition.trim() || 'เภสัชกร',
+        morningRate: Number(staffMorningRate) || 0,
+        afternoonRate: Number(staffAfternoonRate) || 0,
+        order: Number(staffOrder) || 1,
+        isActive: staffActive,
+      };
+      await onSaveStaff(payload);
+      showToast(editingStaffId ? 'แก้ไขข้อมูลบุคลากรแล้ว' : 'เพิ่มบุคลากรใหม่แล้ว');
+      handleResetStaffForm();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveConfigSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      await onSaveConfig(configForm);
+      showToast('บันทึกข้อมูลหัวตารางและผู้ลงนามแล้ว');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Official Print Preview Overlay (matches image_b01088e6.png)
+  if (showOfficialPrintPreview && draftRoster) {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex flex-col overflow-auto p-4 sm:p-8">
+        {/* Non-print toolbar */}
+        <div className="no-print max-w-[1200px] w-full mx-auto mb-4 flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl shadow-lg">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowOfficialPrintPreview(false)}
+              className="px-3.5 py-2 rounded-xl bg-[#F4EFE6] hover:bg-[#E6D5B7] text-[#1E223D] text-xs font-semibold flex items-center gap-2 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>กลับหน้าจัดตารางเวร</span>
+            </button>
+            <div>
+              <h3 className="text-sm font-bold text-[#1E223D]">
+                ตัวอย่างเอกสารราชการ (ฉบับสมบูรณ์พร้อมยอดเงินและผู้ลงนาม)
+              </h3>
+              <p className="text-[11px] text-[#4B5277]">
+                แนะนำให้เลือกกระดาษแนวนอน (Landscape) ขนาด A4 เมื่อสั่งพิมพ์หรือบันทึกเป็น PDF
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => window.print()}
+            className="px-5 py-2.5 rounded-xl bg-[#F54F1B] hover:bg-[#e04514] text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-md transition-colors"
+          >
+            <Printer className="w-4 h-4" />
+            <span>สั่งพิมพ์ / บันทึกเป็น PDF</span>
+          </button>
+        </div>
+
+        {/* Printable Official Document */}
+        <div className="printable-roster max-w-[1200px] w-full mx-auto bg-white text-black p-6 sm:p-8 rounded-xl shadow-2xl border border-slate-300">
+          <div className="text-center font-bold text-sm sm:text-base mb-3">
+            {draftRoster.title} ประจำเดือน {formatThaiMonthYear(draftRoster.yearAD, draftRoster.month)}
+          </div>
+
+          <table className="w-full border-collapse border border-black text-[10px] sm:text-[11px]">
+            <thead>
+              <tr className="bg-[#f7f7ec]">
+                <th className="border border-black px-2 py-1.5 text-center font-bold">ชื่อ-สกุล</th>
+                <th className="border border-black px-2 py-1.5 text-center font-bold">ตำแหน่ง</th>
+                <th className="border border-black px-1.5 py-1.5 text-center font-bold">เวรละ</th>
+                {daysArray.map((day) => {
+                  const isHol = draftRoster.holidays.includes(day);
+                  return (
+                    <th
+                      key={day}
+                      className={`border border-black px-0.5 py-1.5 text-center font-bold w-6 ${
+                        isHol ? 'bg-[#e7efe0]' : ''
+                      }`}
+                    >
+                      {day}
+                    </th>
+                  );
+                })}
+                <th className="border border-black px-2 py-1.5 text-center font-bold">จำนวน</th>
+                <th className="border border-black px-2 py-1.5 text-center font-bold">จำนวนเงิน</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...draftRoster.rows]
+                .sort((a, b) => a.order - b.order)
+                .map((row) => {
+                  const mCount = row.morningDays.length;
+                  const aCount = row.afternoonDays.length;
+                  const totalAmount = mCount * row.morningRate + aCount * row.afternoonRate;
+
+                  return (
+                    <React.Fragment key={row.staffId}>
+                      <tr>
+                        <td rowSpan={2} className="border border-black px-2 py-1.5 align-middle whitespace-nowrap">
+                          {row.name}
+                        </td>
+                        <td rowSpan={2} className="border border-black px-2 py-1.5 text-center align-middle">
+                          {row.position}
+                        </td>
+                        <td className="border border-black px-1.5 py-1 text-right whitespace-nowrap tabular-nums">
+                          {row.morningRate} (ช):
+                        </td>
+                        {daysArray.map((day) => {
+                          const isHol = draftRoster.holidays.includes(day);
+                          const has = row.morningDays.includes(day);
+                          return (
+                            <td
+                              key={day}
+                              className={`border border-black text-center py-1 ${
+                                isHol ? 'bg-[#e7efe0]' : ''
+                              }`}
+                            >
+                              {has ? 'ช' : ''}
+                            </td>
+                          );
+                        })}
+                        <td rowSpan={2} className="border border-black px-2 py-1 text-center align-middle whitespace-nowrap tabular-nums">
+                          <div>ช : {mCount}</div>
+                          <div className="mt-1">บ : {aCount}</div>
+                        </td>
+                        <td rowSpan={2} className="border border-black px-2 py-1 text-right align-middle font-semibold tabular-nums">
+                          {totalAmount.toLocaleString('th-TH')}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black px-1.5 py-1 text-right whitespace-nowrap tabular-nums">
+                          {row.afternoonRate} (บ):
+                        </td>
+                        {daysArray.map((day) => {
+                          const isHol = draftRoster.holidays.includes(day);
+                          const has = row.afternoonDays.includes(day);
+                          return (
+                            <td
+                              key={day}
+                              className={`border border-black text-center py-1 ${
+                                isHol ? 'bg-[#e7efe0]' : ''
+                              }`}
+                            >
+                              {has ? 'บ' : ''}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </React.Fragment>
+                  );
+                })}
+              {/* Grand Total Row */}
+              <tr className="font-bold bg-slate-50">
+                <td
+                  colSpan={3 + daysInSelectedMonth + 1}
+                  className="border border-black px-3 py-1.5 text-center"
+                >
+                  รวมทั้งสิ้น
+                </td>
+                <td className="border border-black px-2 py-1.5 text-right tabular-nums">
+                  {grandTotalPay.toLocaleString('th-TH')}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Legend */}
+          <div className="mt-4 text-xs flex gap-8">
+            <div className="font-semibold">หมายเหตุ:</div>
+            <div className="space-y-1">
+              <div>{configForm.morningLabel}</div>
+              <div>{configForm.afternoonLabel}</div>
+            </div>
+          </div>
+
+          {/* Official Signatories */}
+          <div className="mt-12 grid grid-cols-2 gap-12 text-center text-xs">
+            <div className="space-y-1">
+              <div className="mb-3">........................................................</div>
+              <div className="font-semibold">{configForm.leftSignatoryName}</div>
+              <div>{configForm.leftSignatoryPosition}</div>
+              <div>{configForm.leftSignatoryRole}</div>
+            </div>
+            <div className="space-y-1">
+              <div className="mb-3">........................................................</div>
+              <div className="font-semibold">{configForm.rightSignatoryName}</div>
+              <div>{configForm.rightSignatoryPosition}</div>
+              <div>{configForm.rightSignatoryRole}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5 bg-[#1E223D]/60 backdrop-blur-md">
+      <div className="relative w-full max-w-[1380px] h-[94vh] rounded-3xl bg-white/95 backdrop-blur-2xl flex flex-col overflow-hidden border border-[#1E223D]/15 shadow-2xl text-[#1E223D]">
+        {/* Header */}
+        <div className="px-5 py-4 sm:px-6 border-b border-[#1E223D]/10 flex items-center justify-between gap-4 shrink-0 bg-[#1E223D] text-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[#F54F1B] flex items-center justify-center text-white shrink-0 shadow-sm">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold tracking-tight truncate">
+                  ระบบหลังบ้านจัดตารางเวร (Confidential Admin)
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#E6D5B7]/20 text-[#E6D5B7]">
+                  PIN Verified · แสดงอัตราค่าตอบแทน
+                </span>
+              </div>
+              <p className="text-xs text-[#E6D5B7]/85 truncate">
+                จัดตารางเวร คำนวณยอดเงินค่าตอบแทนลับเฉพาะผู้ดูแล และเผยแพร่เฉพาะตารางเวรขึ้นหน้าเว็บหลัก
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+            aria-label="ปิดหน้าต่าง"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Toast Notification */}
+        {toastMsg && (
+          <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-2 text-xs text-emerald-800 font-semibold flex items-center gap-2 animate-fade-in shrink-0">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>{toastMsg}</span>
+          </div>
+        )}
+
+        {/* Navigation Tabs */}
+        <div className="px-5 sm:px-6 pt-3 pb-2.5 border-b border-[#1E223D]/10 flex items-center justify-between gap-3 flex-wrap shrink-0 bg-[#F9F5EE]">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => setActiveTab('schedule')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap flex items-center gap-2 ${
+                activeTab === 'schedule'
+                  ? 'bg-[#F54F1B] text-white shadow-xs'
+                  : 'text-[#4B5277] hover:text-[#1E223D] hover:bg-white'
+              }`}
+            >
+              <CalendarDays className="w-4 h-4" />
+              <span>จัดตารางเวรรายเดือน</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('staff')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap flex items-center gap-2 ${
+                activeTab === 'staff'
+                  ? 'bg-[#F54F1B] text-white shadow-xs'
+                  : 'text-[#4B5277] hover:text-[#1E223D] hover:bg-white'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>บุคลากรและอัตราค่าเวร ({staffList.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('config')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap flex items-center gap-2 ${
+                activeTab === 'config'
+                  ? 'bg-[#F54F1B] text-white shadow-xs'
+                  : 'text-[#4B5277] hover:text-[#1E223D] hover:bg-white'
+              }`}
+            >
+              <FileSignature className="w-4 h-4" />
+              <span>หัวตารางและผู้ลงนาม</span>
+            </button>
+          </div>
+
+          {/* Month & Year Picker when in schedule tab */}
+          {activeTab === 'schedule' && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="px-3 py-1.5 rounded-xl bg-white border border-[#1E223D]/15 text-xs sm:text-sm font-semibold text-[#1E223D] outline-none"
+              >
+                {THAI_MONTHS.map((mName, idx) => (
+                  <option key={idx + 1} value={idx + 1}>
+                    {mName}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedYearAD}
+                onChange={(e) => setSelectedYearAD(Number(e.target.value))}
+                className="px-3 py-1.5 rounded-xl bg-white border border-[#1E223D]/15 text-xs sm:text-sm font-semibold text-[#1E223D] outline-none"
+              >
+                {[defaultYear - 1, defaultYear, defaultYear + 1, defaultYear + 2].map((y) => (
+                  <option key={y} value={y}>
+                    พ.ศ. {y + 543}
+                  </option>
+                ))}
+              </select>
+
+              {adminRosters.length > 0 && (
+                <select
+                  value={monthKey}
+                  onChange={(e) => {
+                    const [y, m] = e.target.value.split('-').map(Number);
+                    if (y && m) {
+                      setSelectedYearAD(y);
+                      setSelectedMonth(m);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-[#F4EFE6] border border-[#1E223D]/15 text-xs font-medium text-[#4B5277] outline-none"
+                  title="ข้ามไปยังเดือนที่สร้างไว้แล้ว"
+                >
+                  <option value="">-- เดือนที่บันทึกไว้ ({adminRosters.length}) --</option>
+                  {adminRosters.map((r) => (
+                    <option key={r.monthKey} value={r.monthKey}>
+                      {formatThaiMonthYear(r.yearAD, r.month)} ({r.isPublished ? 'เผยแพร่แล้ว' : 'ฉบับร่าง'})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Main Workspace Body */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+          {/* TAB 1: MONTHLY ROSTER EDITOR */}
+          {activeTab === 'schedule' && (
+            <>
+              {!draftRoster ? (
+                <div className="py-16 px-6 text-center rounded-3xl bg-[#F4EFE6] border border-[#1E223D]/10 space-y-4">
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-[#1E223D] text-[#E6D5B7] flex items-center justify-center shadow-md">
+                    <CalendarDays className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-[#1E223D]">
+                      ยังไม่ได้สร้างตารางเวรประจำเดือน {formatThaiMonthYear(selectedYearAD, selectedMonth)}
+                    </h3>
+                    <p className="text-xs text-[#4B5277] mt-1 max-w-md mx-auto">
+                      เริ่มต้นจัดตารางเวรใหม่สำหรับเดือนนี้ โดยระบบจะดึงรายชื่อบุคลากรและวันหยุดเสาร์-อาทิตย์ให้อัตโนมัติ
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    <button
+                      onClick={() => handleCreateMonthSchedule(false)}
+                      className="px-5 py-2.5 rounded-xl bg-[#F54F1B] hover:bg-[#e04514] text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-md transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>สร้างตารางเวรใหม่ (ตารางว่าง)</span>
+                    </button>
+
+                    {adminRosters.length > 0 && (
+                      <button
+                        onClick={() => handleCreateMonthSchedule(true)}
+                        className="px-5 py-2.5 rounded-xl bg-[#1E223D] hover:bg-[#2A3159] text-white text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-sm transition-all"
+                      >
+                        <Copy className="w-4 h-4 text-[#E6D5B7]" />
+                        <span>คัดลอกวันเวรจากเดือนล่าสุด</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Status & Quick Tools Bar */}
+                  <div className="p-4 rounded-2xl bg-[#F4EFE6] border border-[#1E223D]/10 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
+                          draftRoster.isPublished
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : 'bg-amber-100 text-amber-800 border border-amber-300'
+                        }`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            draftRoster.isPublished ? 'bg-emerald-600' : 'bg-amber-600'
+                          }`}
+                        />
+                        {draftRoster.isPublished
+                          ? 'สถานะ: เผยแพร่บนหน้าหลักแล้ว (ไม่มียอดเงิน)'
+                          : 'สถานะ: ฉบับร่าง (เห็นเฉพาะหลังบ้าน)'}
+                      </span>
+
+                      <div className="px-3.5 py-1.5 rounded-xl bg-[#1E223D] text-white text-xs font-semibold flex items-center gap-2 shadow-xs">
+                        <ShieldAlert className="w-3.5 h-3.5 text-[#E6D5B7]" />
+                        <span>ยอดเบิกรวมทั้งสิ้น (ลับ):</span>
+                        <span className="text-[#E6D5B7] font-mono text-sm font-bold tabular-nums">
+                          {grandTotalPay.toLocaleString('th-TH')} บาท
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Tool Buttons */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={handleAutoWeekends}
+                        className="px-3 py-2 rounded-xl bg-white hover:bg-[#F9F5EE] text-[#1E223D] border border-[#1E223D]/15 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                        title="ไฮไลท์วันเสาร์-อาทิตย์เป็นวันหยุดอัตโนมัติ"
+                      >
+                        <CalendarCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>ตรวจจับ ส.-อา.</span>
+                      </button>
+
+                      <button
+                        onClick={handleSyncStaffIntoMonth}
+                        className="px-3 py-2 rounded-xl bg-white hover:bg-[#F9F5EE] text-[#1E223D] border border-[#1E223D]/15 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                        title="ดึงรายชื่อและค่าเวรล่าสุดจากแท็บบุคลากร"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-[#F54F1B]" />
+                        <span>ซิงค์รายชื่อ/เรท</span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowOfficialPrintPreview(true)}
+                        className="px-3.5 py-2 rounded-xl bg-[#1E223D] hover:bg-[#2A3159] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-[#E6D5B7]" />
+                        <span>พิมพ์เอกสารราชการ (มียอดเงิน)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Helper Tip */}
+                  <div className="text-xs text-[#4B5277] flex flex-wrap items-center justify-between gap-2 px-1">
+                    <span>
+                      💡 <strong>วิธีใช้งาน:</strong> คลิกที่ช่องวันที่ <strong>ช</strong> หรือ <strong>บ</strong> เพื่อจัด/ยกเลิกเวร · คลิกที่<strong>ตัวเลขวันที่ด้านบน</strong>เพื่อกำหนดวันหยุดนักขัตฤกษ์ (สีเขียว)
+                    </span>
+                  </div>
+
+                  {/* Interactive 1..31 Schedule Matrix with Confidential Rates & Money */}
+                  <div className="rounded-2xl border border-[#1E223D]/15 bg-white overflow-x-auto shadow-xs">
+                    <table className="w-full border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-[#F4EFE6] text-[#1E223D] border-b border-[#1E223D]/15">
+                          <th className="sticky left-0 z-20 bg-[#F4EFE6] px-3 py-2.5 text-left font-bold border-r border-[#1E223D]/15 min-w-[160px] whitespace-nowrap">
+                            ชื่อ-สกุล
+                          </th>
+                          <th className="px-2.5 py-2.5 text-left font-bold border-r border-[#1E223D]/15 min-w-[120px] whitespace-nowrap">
+                            ตำแหน่ง
+                          </th>
+                          <th className="px-2 py-2.5 text-right font-bold border-r border-[#1E223D]/15 min-w-[78px] whitespace-nowrap">
+                            เวรละ (ลับ)
+                          </th>
+                          {daysArray.map((day) => {
+                            const isHoliday = draftRoster.holidays.includes(day);
+                            const dowLabel = THAI_DAYS_SHORT[getDayOfWeek(selectedYearAD, selectedMonth, day)];
+                            return (
+                              <th
+                                key={day}
+                                onClick={() => handleToggleHoliday(day)}
+                                title={`คลิกเพื่อสลับวันหยุดวันที่ ${day}`}
+                                className={`px-0.5 py-2 text-center font-bold border-r border-[#1E223D]/10 min-w-[30px] cursor-pointer select-none transition-colors tabular-nums ${
+                                  isHoliday
+                                    ? 'bg-[#e2eed8] text-emerald-900 hover:bg-[#d2e5c3]'
+                                    : 'hover:bg-white'
+                                }`}
+                              >
+                                <div>{day}</div>
+                                <div className="text-[9px] font-normal text-[#4B5277]">{dowLabel}</div>
+                              </th>
+                            );
+                          })}
+                          <th className="px-2.5 py-2.5 text-center font-bold border-r border-[#1E223D]/15 min-w-[64px] whitespace-nowrap">
+                            จำนวน
+                          </th>
+                          <th className="px-3 py-2.5 text-right font-bold bg-[#1E223D] text-[#E6D5B7] min-w-[88px] whitespace-nowrap">
+                            จำนวนเงิน
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {[...draftRoster.rows]
+                          .sort((a, b) => a.order - b.order)
+                          .map((row) => {
+                            const mCount = row.morningDays.length;
+                            const aCount = row.afternoonDays.length;
+                            const rowPay = mCount * row.morningRate + aCount * row.afternoonRate;
+
+                            return (
+                              <React.Fragment key={row.staffId}>
+                                {/* Morning Row */}
+                                <tr className="border-b border-[#1E223D]/10">
+                                  <td
+                                    rowSpan={2}
+                                    className="sticky left-0 z-10 bg-white px-3 py-2 font-semibold text-[#1E223D] border-r border-[#1E223D]/15 align-middle whitespace-nowrap"
+                                  >
+                                    {row.name}
+                                  </td>
+                                  <td
+                                    rowSpan={2}
+                                    className="px-2.5 py-2 text-[#4B5277] border-r border-[#1E223D]/15 align-middle text-[11px]"
+                                  >
+                                    {row.position}
+                                  </td>
+                                  <td className="px-2 py-1.5 text-right font-mono text-[11px] text-amber-800 bg-amber-50/60 border-r border-[#1E223D]/15 whitespace-nowrap tabular-nums">
+                                    {row.morningRate} (ช):
+                                  </td>
+                                  {daysArray.map((day) => {
+                                    const has = row.morningDays.includes(day);
+                                    const isHol = draftRoster.holidays.includes(day);
+                                    return (
+                                      <td
+                                        key={day}
+                                        onClick={() => handleToggleShift(row.staffId, 'morning', day)}
+                                        className={`p-0.5 text-center border-r border-[#1E223D]/10 cursor-pointer select-none transition-colors ${
+                                          isHol ? 'bg-[#e7efe0]/80 hover:bg-[#d7e6cb]' : 'hover:bg-amber-50'
+                                        }`}
+                                      >
+                                        <div
+                                          className={`w-6 h-6 mx-auto rounded-md flex items-center justify-center text-[11px] font-bold transition-all ${
+                                            has
+                                              ? 'bg-amber-500 text-white shadow-2xs scale-95'
+                                              : 'text-transparent hover:text-amber-400'
+                                          }`}
+                                        >
+                                          ช
+                                        </div>
+                                      </td>
+                                    );
+                                  })}
+                                  <td
+                                    rowSpan={2}
+                                    className="px-2 py-2 text-center border-r border-[#1E223D]/15 font-semibold tabular-nums whitespace-nowrap bg-[#F9F5EE]"
+                                  >
+                                    <div className="text-amber-800">ช : {mCount}</div>
+                                    <div className="text-[#F54F1B] mt-0.5">บ : {aCount}</div>
+                                  </td>
+                                  <td
+                                    rowSpan={2}
+                                    className="px-3 py-2 text-right font-bold text-[#1E223D] bg-[#F4EFE6]/60 tabular-nums whitespace-nowrap"
+                                  >
+                                    {rowPay.toLocaleString('th-TH')}
+                                  </td>
+                                </tr>
+
+                                {/* Afternoon Row */}
+                                <tr className="border-b border-[#1E223D]/20">
+                                  <td className="px-2 py-1.5 text-right font-mono text-[11px] text-[#F54F1B] bg-[#F54F1B]/5 border-r border-[#1E223D]/15 whitespace-nowrap tabular-nums">
+                                    {row.afternoonRate} (บ):
+                                  </td>
+                                  {daysArray.map((day) => {
+                                    const has = row.afternoonDays.includes(day);
+                                    const isHol = draftRoster.holidays.includes(day);
+                                    return (
+                                      <td
+                                        key={day}
+                                        onClick={() => handleToggleShift(row.staffId, 'afternoon', day)}
+                                        className={`p-0.5 text-center border-r border-[#1E223D]/10 cursor-pointer select-none transition-colors ${
+                                          isHol ? 'bg-[#e7efe0]/80 hover:bg-[#d7e6cb]' : 'hover:bg-[#F54F1B]/5'
+                                        }`}
+                                      >
+                                        <div
+                                          className={`w-6 h-6 mx-auto rounded-md flex items-center justify-center text-[11px] font-bold transition-all ${
+                                            has
+                                              ? 'bg-[#F54F1B] text-white shadow-2xs scale-95'
+                                              : 'text-transparent hover:text-[#F54F1B]/50'
+                                          }`}
+                                        >
+                                          บ
+                                        </div>
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              </React.Fragment>
+                            );
+                          })}
+
+                        {/* Daily Coverage Helper Row + Grand Total */}
+                        <tr className="bg-[#F4EFE6] border-t-2 border-[#1E223D]/20 font-semibold text-[10px]">
+                          <td colSpan={3} className="sticky left-0 z-10 bg-[#F4EFE6] px-3 py-2 text-[#1E223D] border-r border-[#1E223D]/15">
+                            สรุปจำนวนคนขึ้นเวรแต่ละวัน (ช / บ)
+                          </td>
+                          {daysArray.map((day) => {
+                            const cov = dailyCoverage[day] || { morning: 0, afternoon: 0 };
+                            const totalDay = cov.morning + cov.afternoon;
+                            return (
+                              <td
+                                key={day}
+                                className={`text-center py-1.5 border-r border-[#1E223D]/10 tabular-nums ${
+                                  totalDay === 0 ? 'bg-amber-100/70 text-amber-800' : 'text-[#1E223D]'
+                                }`}
+                                title={`วันที่ ${day}: เวรเช้า ${cov.morning} คน, เวรบ่าย ${cov.afternoon} คน`}
+                              >
+                                <div className="text-amber-700">{cov.morning || '-'}</div>
+                                <div className="text-[#F54F1B]">{cov.afternoon || '-'}</div>
+                              </td>
+                            );
+                          })}
+                          <td className="px-2 py-2 text-center font-bold text-[#1E223D] border-r border-[#1E223D]/15">
+                            รวมทั้งสิ้น
+                          </td>
+                          <td className="px-3 py-2 text-right font-bold text-sm text-[#F54F1B] bg-[#1E223D] tabular-nums whitespace-nowrap">
+                            {grandTotalPay.toLocaleString('th-TH')}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Public Note & Bottom Action Buttons */}
+                  <div className="p-4 rounded-2xl bg-[#F4EFE6] border border-[#1E223D]/10 space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-[#1E223D]">
+                        หมายเหตุเพิ่มเติมสำหรับเดือนนี้ (จะแสดงบนหน้าหลักเมื่อเผยแพร่ · ห้ามใส่ยอดเงิน)
+                      </label>
+                      <input
+                        type="text"
+                        value={draftRoster.note || ''}
+                        onChange={(e) => setDraftRoster({ ...draftRoster, note: e.target.value })}
+                        placeholder="เช่น กรณีแลกเวรให้แจ้งหัวหน้ากลุ่มงานล่วงหน้าอย่างน้อย 1 วัน"
+                        className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs text-[#1E223D] outline-none focus:border-[#F54F1B]"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleDeleteCurrentMonth}
+                        disabled={isSaving}
+                        className="px-3.5 py-2 rounded-xl text-rose-700 hover:bg-rose-100 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>ลบตารางเดือนนี้</span>
+                      </button>
+
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        {draftRoster.isPublished && (
+                          <button
+                            type="button"
+                            onClick={() => handleSaveRoster(false)}
+                            disabled={isSaving}
+                            className="px-4 py-2.5 rounded-xl bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                          >
+                            <EyeOff className="w-4 h-4" />
+                            <span>ซ่อนจากหน้าหลัก (ฉบับร่าง)</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleSaveRoster(draftRoster.isPublished)}
+                          disabled={isSaving}
+                          className="px-4 py-2.5 rounded-xl bg-[#1E223D] hover:bg-[#2A3159] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                        >
+                          <Save className="w-4 h-4 text-[#E6D5B7]" />
+                          <span>{isSaving ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSaveRoster(true)}
+                          disabled={isSaving}
+                          className="px-5 py-2.5 rounded-xl bg-[#F54F1B] hover:bg-[#e04514] text-white text-xs sm:text-sm font-bold flex items-center gap-2 transition-all shadow-md shadow-[#F54F1B]/25"
+                        >
+                          <Globe className="w-4 h-4" />
+                          <span>
+                            {draftRoster.isPublished
+                              ? 'อัปเดตและเผยแพร่ขึ้นหน้าหลัก'
+                              : 'เผยแพร่ขึ้นหน้าหลัก (ไม่แสดงยอดเงิน)'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* TAB 2: STAFF & CONFIDENTIAL RATES */}
+          {activeTab === 'staff' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Staff Form */}
+              <form
+                onSubmit={handleSubmitStaff}
+                className="p-5 rounded-2xl bg-[#F4EFE6] border border-[#1E223D]/10 space-y-4 h-fit"
+              >
+                <h3 className="text-sm font-bold text-[#1E223D] flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-[#F54F1B]" />
+                  <span>{editingStaffId ? 'แก้ไขข้อมูลบุคลากร' : 'เพิ่มบุคลากรและอัตราค่าเวร'}</span>
+                </h3>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[#1E223D]">ชื่อ-สกุล *</label>
+                  <input
+                    type="text"
+                    required
+                    value={staffName}
+                    onChange={(e) => setStaffName(e.target.value)}
+                    placeholder="เช่น นายธีรดนย์ พลค้อ"
+                    className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none focus:border-[#F54F1B]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[#1E223D]">ตำแหน่ง</label>
+                  <input
+                    type="text"
+                    value={staffPosition}
+                    onChange={(e) => setStaffPosition(e.target.value)}
+                    placeholder="เช่น เภสัชกร ชำนาญการ"
+                    className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none focus:border-[#F54F1B]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1E223D]">ค่าเวร ช (บาท)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={staffMorningRate}
+                      onChange={(e) => setStaffMorningRate(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs font-mono outline-none focus:border-[#F54F1B]"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1E223D]">ค่าเวร บ (บาท)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={staffAfternoonRate}
+                      onChange={(e) => setStaffAfternoonRate(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs font-mono outline-none focus:border-[#F54F1B]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 items-center">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1E223D]">ลำดับที่</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={staffOrder}
+                      onChange={(e) => setStaffOrder(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs font-mono outline-none"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-[#1E223D] pt-5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={staffActive}
+                      onChange={(e) => setStaffActive(e.target.checked)}
+                      className="rounded text-[#F54F1B]"
+                    />
+                    <span>ขึ้นเวรประจำ (Active)</span>
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-[#F54F1B] hover:bg-[#e04514] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{editingStaffId ? 'บันทึกการแก้ไข' : 'เพิ่มบุคลากร'}</span>
+                  </button>
+                  {editingStaffId && (
+                    <button
+                      type="button"
+                      onClick={handleResetStaffForm}
+                      className="px-3 py-2.5 rounded-xl bg-white text-xs font-semibold text-[#4B5277]"
+                    >
+                      ยกเลิก
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              {/* Staff List */}
+              <div className="lg:col-span-2 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-[#1E223D]">
+                    รายชื่อบุคลากรและอัตราค่าตอบแทนลับ ({staffList.length} คน)
+                  </h3>
+                </div>
+
+                <div className="space-y-2.5">
+                  {[...staffList]
+                    .sort((a, b) => a.order - b.order)
+                    .map((s) => (
+                      <div
+                        key={s.id}
+                        className="p-4 rounded-2xl bg-[#F4EFE6] border border-[#1E223D]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2 py-0.5 rounded-md bg-[#1E223D] text-[#E6D5B7] text-[10px] font-mono font-bold">
+                              #{s.order}
+                            </span>
+                            <span className="text-sm font-bold text-[#1E223D]">{s.name}</span>
+                            <span className="text-xs text-[#4B5277]">· {s.position}</span>
+                            {!s.isActive && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-600">
+                                พักเวร
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-[#4B5277] font-mono tabular-nums">
+                            อัตราค่าตอบแทน (ลับ): เวรเช้า (ช){' '}
+                            <strong className="text-[#1E223D]">{s.morningRate}</strong> บาท · เวรบ่าย (บ){' '}
+                            <strong className="text-[#1E223D]">{s.afternoonRate}</strong> บาท
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-center">
+                          <button
+                            onClick={() => handleStartEditStaff(s)}
+                            className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#F9F5EE] border border-[#1E223D]/10 text-xs font-semibold text-[#1E223D] flex items-center gap-1.5"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-[#F54F1B]" />
+                            <span>แก้ไข</span>
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (confirm(`ยืนยันการลบ "${s.name}" ออกจากรายชื่อ?`)) {
+                                await onDeleteStaff(s.id);
+                                showToast('ลบรายชื่อบุคลากรแล้ว');
+                              }
+                            }}
+                            className="p-2 rounded-xl text-[#4B5277] hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: HEADER & SIGNATORIES CONFIG */}
+          {activeTab === 'config' && (
+            <form onSubmit={handleSaveConfigSubmit} className="max-w-3xl space-y-5">
+              <div className="p-5 rounded-2xl bg-[#F4EFE6] border border-[#1E223D]/10 space-y-4">
+                <h3 className="text-sm font-bold text-[#1E223D]">
+                  หัวข้อตารางและคำอธิบายเวลาปฏิบัติงาน
+                </h3>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[#1E223D]">ชื่อหัวเรื่องตาราง</label>
+                  <input
+                    type="text"
+                    value={configForm.departmentTitle}
+                    onChange={(e) => setConfigForm({ ...configForm, departmentTitle: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none focus:border-[#F54F1B]"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1E223D]">คำอธิบายเวรเช้า (ช)</label>
+                    <input
+                      type="text"
+                      value={configForm.morningLabel}
+                      onChange={(e) => setConfigForm({ ...configForm, morningLabel: e.target.value })}
+                      className="w-full px-4 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1E223D]">คำอธิบายเวรบ่าย (บ)</label>
+                    <input
+                      type="text"
+                      value={configForm.afternoonLabel}
+                      onChange={(e) => setConfigForm({ ...configForm, afternoonLabel: e.target.value })}
+                      className="w-full px-4 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Left Signatory */}
+                <div className="p-5 rounded-2xl bg-[#F4EFE6] border border-[#1E223D]/10 space-y-3">
+                  <h4 className="text-xs font-bold text-[#F54F1B] uppercase">ผู้ลงนามฝั่งซ้าย (หัวหน้ากลุ่มงาน)</h4>
+                  <input
+                    type="text"
+                    value={configForm.leftSignatoryName}
+                    onChange={(e) => setConfigForm({ ...configForm, leftSignatoryName: e.target.value })}
+                    placeholder="ชื่อ-สกุล"
+                    className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={configForm.leftSignatoryPosition}
+                    onChange={(e) => setConfigForm({ ...configForm, leftSignatoryPosition: e.target.value })}
+                    placeholder="ตำแหน่งทางวิชาการ/ระดับ"
+                    className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={configForm.leftSignatoryRole}
+                    onChange={(e) => setConfigForm({ ...configForm, leftSignatoryRole: e.target.value })}
+                    placeholder="ตำแหน่งบริหาร"
+                    className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none"
+                  />
+                </div>
+
+                {/* Right Signatory */}
+                <div className="p-5 rounded-2xl bg-[#F4EFE6] border border-[#1E223D]/10 space-y-3">
+                  <h4 className="text-xs font-bold text-[#F54F1B] uppercase">ผู้ลงนามฝั่งขวา (ผู้อนุมัติ)</h4>
+                  <input
+                    type="text"
+                    value={configForm.rightSignatoryName}
+                    onChange={(e) => setConfigForm({ ...configForm, rightSignatoryName: e.target.value })}
+                    placeholder="ชื่อ-สกุล"
+                    className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={configForm.rightSignatoryPosition}
+                    onChange={(e) => setConfigForm({ ...configForm, rightSignatoryPosition: e.target.value })}
+                    placeholder="ตำแหน่งทางวิชาการ/ระดับ"
+                    className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={configForm.rightSignatoryRole}
+                    onChange={(e) => setConfigForm({ ...configForm, rightSignatoryRole: e.target.value })}
+                    placeholder="ตำแหน่งบริหาร"
+                    className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="px-6 py-2.5 rounded-xl bg-[#F54F1B] hover:bg-[#e04514] text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-md"
+              >
+                <Save className="w-4 h-4" />
+                <span>บันทึกการตั้งค่าเอกสารราชการ</span>
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

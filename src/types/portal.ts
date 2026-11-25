@@ -38,3 +38,66 @@ export interface PortalSettings {
   departmentName: string;
   subtitle: string;
 }
+
+// --- Shift Roster (ตารางปฏิบัติงานนอกเวลาราชการ) ---
+
+export interface RosterStaff {
+  id: string;
+  name: string;
+  position: string;
+  morningRate: number; // เวรละ (ช) 08.00 - 16.00 น. - CONFIDENTIAL (Admin only)
+  afternoonRate: number; // เวรละ (บ) 16.01 - 20.00 น. - CONFIDENTIAL (Admin only)
+  order: number;
+  isActive: boolean;
+}
+
+export interface RosterPublicRow {
+  staffId: string;
+  name: string;
+  position: string;
+  order: number;
+  morningDays: number[];
+  afternoonDays: number[];
+}
+
+export interface RosterPublicMonth {
+  monthKey: string; // "YYYY-MM" e.g. "2026-10"
+  yearAD: number;
+  month: number; // 1..12
+  title: string;
+  holidays: number[];
+  rows: RosterPublicRow[];
+  isPublished: boolean;
+  note?: string;
+  updatedAt: string;
+}
+
+export interface RosterAdminRow extends RosterPublicRow {
+  morningRate: number; // CONFIDENTIAL
+  afternoonRate: number; // CONFIDENTIAL
+}
+
+export interface RosterAdminMonth {
+  monthKey: string; // "YYYY-MM"
+  yearAD: number;
+  month: number; // 1..12
+  title: string;
+  holidays: number[];
+  rows: RosterAdminRow[];
+  isPublished: boolean;
+  note?: string;
+  updatedAt: string;
+}
+
+export interface RosterConfig {
+  id: string;
+  departmentTitle: string;
+  morningLabel: string;
+  afternoonLabel: string;
+  leftSignatoryName: string;
+  leftSignatoryPosition: string;
+  leftSignatoryRole: string;
+  rightSignatoryName: string;
+  rightSignatoryPosition: string;
+  rightSignatoryRole: string;
+}
