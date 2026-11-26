@@ -18,12 +18,17 @@ import {
   Lock,
   ArrowLeft,
   Copy,
+  CalendarSearch,
+  Sparkles,
+  Flag,
 } from 'lucide-react';
 import {
   RosterStaff,
   RosterAdminMonth,
   RosterAdminRow,
   RosterConfig,
+  CustomThaiHoliday,
+  ThaiHolidayCategory,
 } from '../types/portal';
 import {
   THAI_MONTHS,
@@ -35,6 +40,11 @@ import {
   formatThaiMonthYear,
   INITIAL_ROSTER_CONFIG,
 } from '../data/rosterData';
+import {
+  checkThaiMonthHolidays,
+  formatDateKey,
+  THAI_HOLIDAY_CATEGORY_LABELS,
+} from '../data/thaiHolidays';
 
 interface AdminRosterModalProps {
   isOpen: boolean;
@@ -42,11 +52,14 @@ interface AdminRosterModalProps {
   staffList: RosterStaff[];
   adminRosters: RosterAdminMonth[];
   rosterConfig: RosterConfig;
+  customHolidays: CustomThaiHoliday[];
   onSaveAdminRoster: (roster: RosterAdminMonth) => Promise<void>;
   onDeleteAdminRoster: (monthKey: string) => Promise<void>;
   onSaveStaff: (staff: RosterStaff) => Promise<void>;
   onDeleteStaff: (staffId: string) => Promise<void>;
   onSaveConfig: (config: RosterConfig) => Promise<void>;
+  onSaveThaiHoliday: (holiday: CustomThaiHoliday) => Promise<void>;
+  onDeleteThaiHoliday: (holidayId: string) => Promise<void>;
 }
 
 export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
@@ -55,11 +68,14 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
   staffList,
   adminRosters,
   rosterConfig,
+  customHolidays,
   onSaveAdminRoster,
   onDeleteAdminRoster,
   onSaveStaff,
   onDeleteStaff,
   onSaveConfig,
+  onSaveThaiHoliday,
+  onDeleteThaiHoliday,
 }) => {
   const now = new Date();
   const defaultYear = now.getFullYear();
@@ -72,6 +88,15 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [toastMsg, setToastMsg] = useState<string>('');
   const [showOfficialPrintPreview, setShowOfficialPrintPreview] = useState<boolean>(false);
+
+  // Thai holiday checker & custom holiday form state
+  const [showHolidayPanel, setShowHolidayPanel] = useState<boolean>(false);
+  const [showAddHolidayForm, setShowAddHolidayForm] = useState<boolean>(false);
+  const [customHolidayDay, setCustomHolidayDay] = useState<number>(1);
+  const [customHolidayName, setCustomHolidayName] = useState<string>('');
+  const [customHolidayCategory, setCustomHolidayCategory] =
+    useState<ThaiHolidayCategory>('special');
+  const [applyNewHolidayToRoster, setApplyNewHolidayToRoster] = useState<boolean>(true);
 
   // Staff form state
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
@@ -119,12 +144,24 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
   const daysInSelectedMonth = getDaysInMonth(selectedYearAD, selectedMonth);
   const daysArray = Array.from({ length: daysInSelectedMonth }, (_, i) => i + 1);
 
+  const holidayReport = useMemo(
+    () => checkThaiMonthHolidays(selectedYearAD, selectedMonth, customHolidays),
+    [selectedYearAD, selectedMonth, customHolidays]
+  );
+
+  const holidayNameByDay = useMemo(() => {
+    const map = new Map<number, string>();
+    holidayReport.thaiHolidays.forEach((h) => {
+      map.set(h.day, h.name);
+    });
+    return map;
+  }, [holidayReport]);
+
   const handleCreateMonthSchedule = (copyFromPrevious: boolean = false) => {
     const activeStaff = [...staffList]
       .filter((s) => s.isActive)
       .sort((a, b) => a.order - b.order);
 
-    const weekends = getWeekendDays(selectedYearAD, selectedMonth);
     let rows: RosterAdminRow[] = activeStaff.map((s) => ({
       staffId: s.id,
       name: s.name,
@@ -156,7 +193,7 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
       yearAD: selectedYearAD,
       month: selectedMonth,
       title: configForm.departmentTitle,
-      holidays: weekends,
+      holidays: holidayReport.allHolidayDays,
       rows,
       isPublished: false,
       note: '',
@@ -164,7 +201,9 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
     };
 
     setDraftRoster(newDraft);
-    showToast(`สร้างแบบร่างตารางเวร ${formatThaiMonthYear(selectedYearAD, selectedMonth)} แล้ว`);
+    showToast(
+      `สร้างแบบร่างตารางเวร ${formatThaiMonthYear(selectedYearAD, selectedMonth)} พร้อมวันหยุดราชการไทยแล้ว`
+    );
   };
 
   const handleToggleHoliday = (day: number) => {
@@ -189,6 +228,78 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
       holidays: merged,
     });
     showToast('เพิ่มวันเสาร์-อาทิตย์ของเดือนนี้เรียบร้อยแล้ว');
+  };
+
+  const handleCheckThaiHolidays = () => {
+    setShowHolidayPanel(true);
+    if (holidayReport.thaiHolidays.length > 0) {
+      showToast(
+        `พบวันหยุดราชการ/นักขัตฤกษ์ไทย ${holidayReport.thaiHolidays.length} วัน ในเดือน${THAI_MONTHS[selectedMonth - 1]}`
+      );
+    } else {
+      showToast(
+        `ไม่พบวันหยุดนักขัตฤกษ์ไทยในเดือน${THAI_MONTHS[selectedMonth - 1]} (สามารถกดเพิ่มเองได้)`
+      );
+    }
+  };
+
+  const handleApplyAllThaiHolidays = (includeWeekends: boolean) => {
+    if (!draftRoster) return;
+    const targetDays = includeWeekends
+      ? holidayReport.allHolidayDays
+      : holidayReport.thaiHolidays.map((h) => h.day);
+
+    const merged = Array.from(new Set([...draftRoster.holidays, ...targetDays])).sort(
+      (a, b) => a - b
+    );
+    setDraftRoster({
+      ...draftRoster,
+      holidays: merged,
+    });
+    showToast(
+      includeWeekends
+        ? 'นำวันหยุด ส.-อา. และวันหยุดราชการไทยทั้งหมดลงตารางแล้ว'
+        : 'นำวันหยุดนักขัตฤกษ์ไทยลงตารางเรียบร้อยแล้ว'
+    );
+  };
+
+  const handleSubmitCustomHoliday = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = customHolidayName.trim();
+    if (!trimmedName) return;
+
+    const safeDay = Math.min(Math.max(1, customHolidayDay), daysInSelectedMonth);
+    const dateKey = formatDateKey(selectedYearAD, selectedMonth, safeDay);
+    const payload: CustomThaiHoliday = {
+      id: `hol-${dateKey}-${Date.now()}`,
+      dateKey,
+      yearAD: selectedYearAD,
+      month: selectedMonth,
+      day: safeDay,
+      name: trimmedName.slice(0, 200),
+      category: customHolidayCategory,
+      createdAt: new Date().toISOString(),
+    };
+
+    setIsSaving(true);
+    try {
+      await onSaveThaiHoliday(payload);
+      if (applyNewHolidayToRoster && draftRoster) {
+        const merged = Array.from(new Set([...draftRoster.holidays, safeDay])).sort(
+          (a, b) => a - b
+        );
+        setDraftRoster({
+          ...draftRoster,
+          holidays: merged,
+        });
+      }
+      setCustomHolidayName('');
+      setShowAddHolidayForm(false);
+      setShowHolidayPanel(true);
+      showToast(`เพิ่มวันหยุด "${trimmedName}" วันที่ ${safeDay} เรียบร้อยแล้ว`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSyncStaffIntoMonth = () => {
@@ -759,6 +870,33 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
                       </button>
 
                       <button
+                        onClick={handleCheckThaiHolidays}
+                        className={`px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                          showHolidayPanel
+                            ? 'bg-emerald-700 text-white border-emerald-700'
+                            : 'bg-white hover:bg-emerald-50 text-emerald-800 border-emerald-300'
+                        }`}
+                        title="ตรวจสอบวันหยุดนักขัตฤกษ์และวันหยุดราชการไทยประจำเดือนนี้"
+                      >
+                        <CalendarSearch className="w-3.5 h-3.5" />
+                        <span>
+                          ตรวจสอบวันหยุดราชการไทย ({holidayReport.thaiHolidays.length})
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setShowHolidayPanel(true);
+                          setShowAddHolidayForm(true);
+                        }}
+                        className="px-3 py-2 rounded-xl bg-white hover:bg-[#FFF5F2] text-[#F54F1B] border border-[#F54F1B]/30 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                        title="เพิ่มวันหยุดราชการไทยหรือวันหยุดกรณีพิเศษ (กรณีไม่มีข้อมูล)"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>เพิ่มวันหยุดราชการไทย</span>
+                      </button>
+
+                      <button
                         onClick={handleSyncStaffIntoMonth}
                         className="px-3 py-2 rounded-xl bg-white hover:bg-[#F9F5EE] text-[#1E223D] border border-[#1E223D]/15 text-xs font-semibold flex items-center gap-1.5 transition-colors"
                         title="ดึงรายชื่อและค่าเวรล่าสุดจากแท็บบุคลากร"
@@ -777,10 +915,268 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
                     </div>
                   </div>
 
+                  {/* Thai Public Holiday Verification & Custom Add Panel */}
+                  {showHolidayPanel && (
+                    <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/75 border border-emerald-200 space-y-4 animate-fade-in">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0">
+                            <Flag className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-emerald-950">
+                              ตรวจสอบวันนักขัตฤกษ์และวันหยุดราชการไทย —{' '}
+                              {formatThaiMonthYear(selectedYearAD, selectedMonth)}
+                            </h4>
+                            <p className="text-[11px] text-emerald-800">
+                              พบวันเสาร์–อาทิตย์ {holidayReport.weekends.length} วัน · วันหยุดราชการไทย/ชดเชย{' '}
+                              {holidayReport.thaiHolidays.length} วัน
+                              {!holidayReport.hasLunarCoverage &&
+                                ' (ปีนี้ยังไม่มีปฏิทินวันพระใหญ่ในระบบ กรุณาตรวจสอบหรือเพิ่มวันหยุดเอง)'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => handleApplyAllThaiHolidays(true)}
+                            className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>ไฮไลท์ทั้งหมดลงตาราง (ส.-อา. + นักขัตฤกษ์)</span>
+                          </button>
+                          {holidayReport.thaiHolidays.length > 0 && (
+                            <button
+                              onClick={() => handleApplyAllThaiHolidays(false)}
+                              className="px-3 py-2 rounded-xl bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-semibold transition-colors"
+                            >
+                              เพิ่มเฉพาะนักขัตฤกษ์
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setShowAddHolidayForm((prev) => !prev)}
+                            className="px-3 py-2 rounded-xl bg-[#F54F1B] hover:bg-[#e04514] text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>เพิ่มวันหยุดราชการไทย</span>
+                          </button>
+                          <button
+                            onClick={() => setShowHolidayPanel(false)}
+                            className="p-2 rounded-xl text-emerald-800 hover:bg-emerald-100 transition-colors"
+                            title="ปิดหน้าต่างตรวจสอบวันหยุด"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Detected Thai Holidays List or Empty Fallback */}
+                      {holidayReport.thaiHolidays.length === 0 ? (
+                        <div className="p-4 rounded-xl bg-white/90 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="text-xs text-[#4B5277]">
+                            <span className="font-bold text-[#1E223D]">
+                              ไม่พบข้อมูลวันหยุดนักขัตฤกษ์หรือวันหยุดราชการไทยในเดือน
+                              {THAI_MONTHS[selectedMonth - 1]} {selectedYearAD + 543}
+                            </span>
+                            <p className="mt-0.5 text-[11px]">
+                              หากมีวันหยุดราชการกรณีพิเศษตามมติ ครม. หรือวันสำคัญเพิ่มเติม สามารถกดปุ่มเพิ่มวันหยุดราชการไทยเพื่อบันทึกลงระบบได้ทันที
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setShowAddHolidayForm(true)}
+                            className="px-3.5 py-2 rounded-xl bg-[#1E223D] hover:bg-[#2A3159] text-white text-xs font-semibold flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+                          >
+                            <Plus className="w-3.5 h-3.5 text-[#E6D5B7]" />
+                            <span>เพิ่มวันหยุดราชการไทย</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                          {holidayReport.thaiHolidays.map((h) => {
+                            const dow =
+                              THAI_DAYS_SHORT[getDayOfWeek(h.yearAD, h.month, h.day)];
+                            const isMarkedInGrid = draftRoster.holidays.includes(h.day);
+                            return (
+                              <div
+                                key={`${h.dateKey}-${h.name}`}
+                                className="px-3.5 py-2.5 rounded-xl bg-white border border-emerald-200/80 flex items-center justify-between gap-3"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 font-bold text-[11px] tabular-nums">
+                                      {h.day} {THAI_MONTHS[h.month - 1]} ({dow})
+                                    </span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#F4EFE6] text-[#4B5277] font-medium">
+                                      {h.isCustom
+                                        ? 'เพิ่มเอง / ฐานข้อมูล'
+                                        : THAI_HOLIDAY_CATEGORY_LABELS[h.category]}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs font-semibold text-[#1E223D] mt-1 truncate">
+                                    {h.name}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    onClick={() => handleToggleHoliday(h.day)}
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                                      isMarkedInGrid
+                                        ? 'bg-emerald-700 text-white border-emerald-700'
+                                        : 'bg-[#F4EFE6] text-[#1E223D] border-[#1E223D]/15 hover:bg-emerald-100'
+                                    }`}
+                                  >
+                                    {isMarkedInGrid ? 'ไฮไลท์แล้ว ✓' : '+ ไฮไลท์'}
+                                  </button>
+                                  {h.isCustom && h.id && (
+                                    <button
+                                      onClick={async () => {
+                                        if (confirm(`ลบวันหยุด "${h.name}" ออกจากฐานข้อมูลหรือไม่?`)) {
+                                          await onDeleteThaiHoliday(h.id!);
+                                          showToast('ลบวันหยุดที่เพิ่มเองเรียบร้อยแล้ว');
+                                        }
+                                      }}
+                                      className="p-1.5 rounded-lg text-[#4B5277] hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                      title="ลบวันหยุดนี้"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Add Custom Thai Holiday Form */}
+                      {showAddHolidayForm && (
+                        <form
+                          onSubmit={handleSubmitCustomHoliday}
+                          className="p-4 rounded-xl bg-white border border-[#F54F1B]/30 space-y-3 shadow-xs"
+                        >
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-xs font-bold text-[#1E223D] flex items-center gap-1.5">
+                              <Plus className="w-4 h-4 text-[#F54F1B]" />
+                              <span>
+                                เพิ่มวันหยุดราชการไทยประจำเดือน {formatThaiMonthYear(selectedYearAD, selectedMonth)}
+                              </span>
+                            </h5>
+                            <button
+                              type="button"
+                              onClick={() => setShowAddHolidayForm(false)}
+                              className="text-xs text-[#4B5277] hover:text-[#1E223D]"
+                            >
+                              ปิดฟอร์ม
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                            <div className="sm:col-span-3 space-y-1">
+                              <label className="text-[11px] font-semibold text-[#1E223D]">
+                                วันที่
+                              </label>
+                              <select
+                                value={customHolidayDay}
+                                onChange={(e) => setCustomHolidayDay(Number(e.target.value))}
+                                className="w-full px-3 py-2 rounded-xl bg-[#F4EFE6] border border-[#1E223D]/15 text-xs font-semibold text-[#1E223D] outline-none"
+                              >
+                                {daysArray.map((d) => {
+                                  const dow =
+                                    THAI_DAYS_SHORT[getDayOfWeek(selectedYearAD, selectedMonth, d)];
+                                  return (
+                                    <option key={d} value={d}>
+                                      วันที่ {d} ({dow}.)
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </div>
+
+                            <div className="sm:col-span-5 space-y-1">
+                              <label className="text-[11px] font-semibold text-[#1E223D]">
+                                ชื่อวันหยุดราชการ / นักขัตฤกษ์ *
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                maxLength={200}
+                                value={customHolidayName}
+                                onChange={(e) => setCustomHolidayName(e.target.value)}
+                                placeholder="เช่น วันหยุดราชการกรณีพิเศษ (มติ ครม.)"
+                                className="w-full px-3 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none focus:border-[#F54F1B]"
+                              />
+                            </div>
+
+                            <div className="sm:col-span-4 space-y-1">
+                              <label className="text-[11px] font-semibold text-[#1E223D]">
+                                ประเภทวันหยุด
+                              </label>
+                              <select
+                                value={customHolidayCategory}
+                                onChange={(e) =>
+                                  setCustomHolidayCategory(e.target.value as ThaiHolidayCategory)
+                                }
+                                className="w-full px-3 py-2 rounded-xl bg-white border border-[#1E223D]/15 text-xs outline-none focus:border-[#F54F1B]"
+                              >
+                                <option value="special">วันหยุดกรณีพิเศษ (มติ ครม.)</option>
+                                <option value="royal">วันสำคัญราชวงศ์ / เฉลิมพระชนมพรรษา</option>
+                                <option value="buddhist">วันสำคัญทางพระพุทธศาสนา</option>
+                                <option value="national">วันหยุดราชการประจำปี</option>
+                                <option value="substitute">วันหยุดชดเชย</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Quick Preset Chips */}
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                            <span className="text-[#4B5277] font-medium">เลือกชื่อด่วน:</span>
+                            {[
+                              'วันหยุดราชการกรณีพิเศษ (มติ ครม.)',
+                              'วันพืชมงคล',
+                              'วันหยุดชดเชย',
+                              'วันหยุดนักขัตฤกษ์เพิ่มเติม',
+                            ].map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => setCustomHolidayName(preset)}
+                                className="px-2.5 py-1 rounded-lg bg-[#F4EFE6] hover:bg-[#E6D5B7] text-[#1E223D] font-medium transition-colors"
+                              >
+                                + {preset}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                            <label className="flex items-center gap-2 text-xs font-medium text-[#1E223D] cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={applyNewHolidayToRoster}
+                                onChange={(e) => setApplyNewHolidayToRoster(e.target.checked)}
+                                className="rounded text-[#F54F1B]"
+                              />
+                              <span>ทำเครื่องหมายสีเขียวลงในตารางเวรเดือนนี้ทันที</span>
+                            </label>
+
+                            <button
+                              type="submit"
+                              disabled={isSaving || !customHolidayName.trim()}
+                              className="px-4 py-2 rounded-xl bg-[#F54F1B] hover:bg-[#e04514] disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs"
+                            >
+                              <Save className="w-3.5 h-3.5" />
+                              <span>บันทึกวันหยุดลงฐานข้อมูล</span>
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  )}
+
                   {/* Helper Tip */}
                   <div className="text-xs text-[#4B5277] flex flex-wrap items-center justify-between gap-2 px-1">
                     <span>
-                      💡 <strong>วิธีใช้งาน:</strong> คลิกที่ช่องวันที่ <strong>ช</strong> หรือ <strong>บ</strong> เพื่อจัด/ยกเลิกเวร · คลิกที่<strong>ตัวเลขวันที่ด้านบน</strong>เพื่อกำหนดวันหยุดนักขัตฤกษ์ (สีเขียว)
+                      💡 <strong>วิธีใช้งาน:</strong> คลิกที่ช่องวันที่ <strong>ช</strong> หรือ <strong>บ</strong> เพื่อจัด/ยกเลิกเวร · คลิกที่<strong>ตัวเลขวันที่ด้านบน</strong>เพื่อกำหนดวันหยุดนักขัตฤกษ์ (สีเขียว) · วันที่ที่มี <strong className="text-emerald-700">★</strong> คือวันหยุดราชการไทย
                     </span>
                   </div>
 
@@ -800,19 +1196,31 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
                           </th>
                           {daysArray.map((day) => {
                             const isHoliday = draftRoster.holidays.includes(day);
+                            const holidayTitle = holidayNameByDay.get(day);
                             const dowLabel = THAI_DAYS_SHORT[getDayOfWeek(selectedYearAD, selectedMonth, day)];
                             return (
                               <th
                                 key={day}
                                 onClick={() => handleToggleHoliday(day)}
-                                title={`คลิกเพื่อสลับวันหยุดวันที่ ${day}`}
+                                title={
+                                  holidayTitle
+                                    ? `วันที่ ${day}: ${holidayTitle} (คลิกเพื่อสลับวันหยุด)`
+                                    : `คลิกเพื่อสลับวันหยุดวันที่ ${day}`
+                                }
                                 className={`px-0.5 py-2 text-center font-bold border-r border-[#1E223D]/10 min-w-[30px] cursor-pointer select-none transition-colors tabular-nums ${
                                   isHoliday
                                     ? 'bg-[#e2eed8] text-emerald-900 hover:bg-[#d2e5c3]'
                                     : 'hover:bg-white'
                                 }`}
                               >
-                                <div>{day}</div>
+                                <div className="flex items-center justify-center gap-0.5">
+                                  <span>{day}</span>
+                                  {holidayTitle && (
+                                    <span className="text-[8px] text-[#F54F1B]" aria-hidden="true">
+                                      ★
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="text-[9px] font-normal text-[#4B5277]">{dowLabel}</div>
                               </th>
                             );

@@ -23,6 +23,7 @@ import {
   RosterPublicMonth,
   RosterAdminMonth,
   RosterConfig,
+  CustomThaiHoliday,
 } from '../types/portal';
 import {
   INITIAL_APPS,
@@ -350,6 +351,25 @@ export function subscribeToRosterConfig(
   );
 }
 
+export function subscribeToThaiHolidays(
+  callback: (holidays: CustomThaiHoliday[]) => void
+) {
+  return onSnapshot(
+    collection(db, 'thai_holidays'),
+    (snapshot) => {
+      const items: CustomThaiHoliday[] = [];
+      snapshot.forEach((docSnap) => {
+        items.push(docSnap.data() as CustomThaiHoliday);
+      });
+      items.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+      callback(items);
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'thai_holidays');
+    }
+  );
+}
+
 // --- Portal Mutations ---
 export async function saveAppToFirestore(appItem: AppItem) {
   try {
@@ -457,6 +477,24 @@ export async function deleteAdminRosterFromFirestore(monthKey: string) {
     await deleteDoc(doc(db, 'rosters_public', monthKey));
   } catch (err) {
     handleFirestoreError(err, OperationType.DELETE, `rosters_admin/${monthKey}`);
+    throw err;
+  }
+}
+
+export async function saveThaiHolidayToFirestore(holiday: CustomThaiHoliday) {
+  try {
+    await setDoc(doc(db, 'thai_holidays', holiday.id), holiday, { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `thai_holidays/${holiday.id}`);
+    throw err;
+  }
+}
+
+export async function deleteThaiHolidayFromFirestore(holidayId: string) {
+  try {
+    await deleteDoc(doc(db, 'thai_holidays', holidayId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `thai_holidays/${holidayId}`);
     throw err;
   }
 }

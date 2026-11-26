@@ -21,6 +21,7 @@ import {
   RosterPublicMonth,
   RosterAdminMonth,
   RosterConfig,
+  CustomThaiHoliday,
 } from './types/portal';
 import { Header } from './components/Header';
 import { SearchBarAndFilters } from './components/SearchBarAndFilters';
@@ -58,6 +59,7 @@ import {
   subscribeToRosterStaff,
   subscribeToAdminRosters,
   subscribeToRosterConfig,
+  subscribeToThaiHolidays,
   saveAppToFirestore,
   deleteAppFromFirestore,
   saveCategoryToFirestore,
@@ -69,6 +71,8 @@ import {
   saveRosterConfigToFirestore,
   saveAdminRosterToFirestore,
   deleteAdminRosterFromFirestore,
+  saveThaiHolidayToFirestore,
+  deleteThaiHolidayFromFirestore,
   resetFirestoreToDefaults,
 } from './services/firebase';
 
@@ -142,6 +146,7 @@ export default function App() {
   const [staffList, setStaffList] = useState<RosterStaff[]>([]);
   const [adminRosters, setAdminRosters] = useState<RosterAdminMonth[]>([]);
   const [rosterConfig, setRosterConfig] = useState<RosterConfig>(INITIAL_ROSTER_CONFIG);
+  const [customHolidays, setCustomHolidays] = useState<CustomThaiHoliday[]>([]);
 
   // UI & Navigation state
   const [activeSection, setActiveSection] = useState<'apps' | 'roster'>('apps');
@@ -210,6 +215,7 @@ export default function App() {
     if (!isAdminUnlocked) {
       setStaffList([]);
       setAdminRosters([]);
+      setCustomHolidays([]);
       setRosterConfig(INITIAL_ROSTER_CONFIG);
       setIsRosterAdminOpen(false);
       return;
@@ -229,10 +235,15 @@ export default function App() {
       setRosterConfig(remoteConfig);
     });
 
+    const unsubThaiHolidays = subscribeToThaiHolidays((remoteHolidays) => {
+      setCustomHolidays(remoteHolidays);
+    });
+
     return () => {
       unsubStaff();
       unsubAdminRosters();
       unsubRosterConfig();
+      unsubThaiHolidays();
     };
   }, [isAdminUnlocked]);
 
@@ -888,11 +899,14 @@ export default function App() {
           staffList={staffList}
           adminRosters={adminRosters}
           rosterConfig={rosterConfig}
+          customHolidays={customHolidays}
           onSaveAdminRoster={saveAdminRosterToFirestore}
           onDeleteAdminRoster={deleteAdminRosterFromFirestore}
           onSaveStaff={saveRosterStaffToFirestore}
           onDeleteStaff={deleteRosterStaffFromFirestore}
           onSaveConfig={saveRosterConfigToFirestore}
+          onSaveThaiHoliday={saveThaiHolidayToFirestore}
+          onDeleteThaiHoliday={deleteThaiHolidayFromFirestore}
         />
       )}
     </>

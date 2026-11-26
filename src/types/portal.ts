@@ -101,3 +101,21 @@ export interface RosterConfig {
   rightSignatoryPosition: string;
   rightSignatoryRole: string;
 }
+
+export type ThaiHolidayCategory =
+  | 'royal'
+  | 'buddhist'
+  | 'national'
+  | 'substitute'
+  | 'special';
+
+export interface CustomThaiHoliday {
+  id: string;
+  dateKey: string; // "YYYY-MM-DD"
+  yearAD: number;
+  month: number;
+  day: number;
+  name: string;
+  category: ThaiHolidayCategory;
+  createdAt: string;
+}
