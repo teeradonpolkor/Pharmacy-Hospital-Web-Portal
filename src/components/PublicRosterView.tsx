@@ -10,6 +10,7 @@ import {
   Clock,
   Sun,
   Sunset,
+  ImageDown,
 } from 'lucide-react';
 import { RosterPublicMonth } from '../types/portal';
 import {
@@ -18,6 +19,7 @@ import {
   getDayOfWeek,
   THAI_DAYS_SHORT,
 } from '../data/rosterData';
+import { exportPublicRosterToPng } from '../utils/rosterExport';
 
 interface PublicRosterViewProps {
   publicRosters: RosterPublicMonth[];
@@ -65,6 +67,7 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
   }, [sortedRosters, selectedMonthKey, currentMonthKey]);
 
   const [selectedStaffId, setSelectedStaffId] = useState<string>('all');
+  const [isExportingImage, setIsExportingImage] = useState<boolean>(false);
 
   const activeRoster = useMemo(() => {
     return sortedRosters.find((r) => r.monthKey === selectedMonthKey) || null;
@@ -86,6 +89,19 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
 
   const handlePrintPublicRoster = () => {
     window.print();
+  };
+
+  const handleDownloadImage = async () => {
+    if (!activeRoster || isExportingImage) return;
+    setIsExportingImage(true);
+    try {
+      await exportPublicRosterToPng({
+        ...activeRoster,
+        rows: visibleRows,
+      });
+    } finally {
+      setIsExportingImage(false);
+    }
   };
 
   // Determine today's duty from the current month's published roster
@@ -231,17 +247,29 @@ export const PublicRosterView: React.FC<PublicRosterViewProps> = ({
           )}
         </div>
 
-        {/* Actions: Print Public Copy + Admin Roster Button */}
-        <div className="flex items-center gap-2.5 justify-end">
+        {/* Actions: Download Image + Print Public Copy + Admin Roster Button */}
+        <div className="flex flex-wrap items-center gap-2.5 justify-end">
           {activeRoster && (
-            <button
-              onClick={handlePrintPublicRoster}
-              className="px-4 py-2.5 rounded-xl bg-white hover:bg-[#F4EFE6] text-[#1E223D] border border-[#1E223D]/15 text-xs font-semibold flex items-center gap-2 transition-colors shadow-2xs whitespace-nowrap shrink-0"
-              title="พิมพ์ตารางเวรขนาด A4 แนวนอน ครบทุกวันในหน้าเดียว"
-            >
-              <Printer className="w-4 h-4 text-[#F54F1B]" />
-              <span>พิมพ์ตารางเวร</span>
-            </button>
+            <>
+              <button
+                onClick={handleDownloadImage}
+                disabled={isExportingImage}
+                className="px-4 py-2.5 rounded-xl bg-white hover:bg-[#F4EFE6] disabled:opacity-60 text-[#1E223D] border border-[#1E223D]/15 text-xs font-semibold flex items-center gap-2 transition-colors shadow-2xs whitespace-nowrap shrink-0"
+                title="ดาวน์โหลดตารางเวรเป็นไฟล์รูปภาพ PNG (ไม่แสดงยอดเงิน)"
+              >
+                <ImageDown className="w-4 h-4 text-emerald-700" />
+                <span>{isExportingImage ? 'กำลังสร้างรูปภาพ...' : 'ดาวน์โหลดรูปภาพ'}</span>
+              </button>
+
+              <button
+                onClick={handlePrintPublicRoster}
+                className="px-4 py-2.5 rounded-xl bg-white hover:bg-[#F4EFE6] text-[#1E223D] border border-[#1E223D]/15 text-xs font-semibold flex items-center gap-2 transition-colors shadow-2xs whitespace-nowrap shrink-0"
+                title="พิมพ์ตารางเวรขนาด A4 แนวนอน ครบทุกวันในหน้าเดียว"
+              >
+                <Printer className="w-4 h-4 text-[#F54F1B]" />
+                <span>พิมพ์ตารางเวร</span>
+              </button>
+            </>
           )}
 
           {isAdminUnlocked ? (

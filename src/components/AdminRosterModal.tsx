@@ -21,6 +21,7 @@ import {
   CalendarSearch,
   Sparkles,
   Flag,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   RosterStaff,
@@ -45,6 +46,7 @@ import {
   formatDateKey,
   THAI_HOLIDAY_CATEGORY_LABELS,
 } from '../data/thaiHolidays';
+import { exportAdminRosterToExcel } from '../utils/rosterExport';
 
 interface AdminRosterModalProps {
   isOpen: boolean;
@@ -86,6 +88,7 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
   const [selectedMonth, setSelectedMonth] = useState<number>(defaultMonth);
   const [draftRoster, setDraftRoster] = useState<RosterAdminMonth | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isExportingExcel, setIsExportingExcel] = useState<boolean>(false);
   const [toastMsg, setToastMsg] = useState<string>('');
   const [showOfficialPrintPreview, setShowOfficialPrintPreview] = useState<boolean>(false);
 
@@ -472,6 +475,17 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
     }
   };
 
+  const handleDownloadExcel = async () => {
+    if (!draftRoster || isExportingExcel) return;
+    setIsExportingExcel(true);
+    try {
+      await exportAdminRosterToExcel(draftRoster, configForm);
+      showToast('ดาวน์โหลดไฟล์ Excel (.xlsx) เรียบร้อยแล้ว');
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
   // Official Print Preview Overlay (matches image_b01088e6.png)
   if (showOfficialPrintPreview && draftRoster) {
     const adminDayColPercent = `${(62 / daysInSelectedMonth).toFixed(4)}%`;
@@ -498,13 +512,24 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={() => window.print()}
-            className="px-5 py-2.5 rounded-xl bg-[#F54F1B] hover:bg-[#e04514] text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-md transition-colors"
-          >
-            <Printer className="w-4 h-4" />
-            <span>สั่งพิมพ์ / บันทึกเป็น PDF</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={handleDownloadExcel}
+              disabled={isExportingExcel}
+              className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-md transition-colors"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>{isExportingExcel ? 'กำลังสร้าง Excel...' : 'ดาวน์โหลด Excel'}</span>
+            </button>
+
+            <button
+              onClick={() => window.print()}
+              className="px-5 py-2.5 rounded-xl bg-[#F54F1B] hover:bg-[#e04514] text-white text-xs sm:text-sm font-bold flex items-center gap-2 shadow-md transition-colors"
+            >
+              <Printer className="w-4 h-4" />
+              <span>สั่งพิมพ์ / บันทึกเป็น PDF</span>
+            </button>
+          </div>
         </div>
 
         {/* Printable Official Document */}
@@ -903,6 +928,16 @@ export const AdminRosterModal: React.FC<AdminRosterModalProps> = ({
                       >
                         <RefreshCw className="w-3.5 h-3.5 text-[#F54F1B]" />
                         <span>ซิงค์รายชื่อ/เรท</span>
+                      </button>
+
+                      <button
+                        onClick={handleDownloadExcel}
+                        disabled={isExportingExcel}
+                        className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                        title="ส่งออกตารางเวรพร้อมสูตรและค่าตอบแทนเป็นไฟล์ Excel (.xlsx)"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                        <span>{isExportingExcel ? 'กำลังส่งออก...' : 'ดาวน์โหลด Excel'}</span>
                       </button>
 
                       <button
